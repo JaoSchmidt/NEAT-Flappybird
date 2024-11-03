@@ -6,8 +6,8 @@ void Game::onEvent(const SDL_Event &event) {}
 
 void Game::onCreate()
 {
-  const int w = 800;
-  const int h = 600;
+  const int w = 1024;
+  const int h = 768;
   std::shared_ptr<pain::OrthoCameraEntity> camera =
       std::make_shared<pain::OrthoCameraEntity>(this, (float)w / h, 1.0f);
   pain::Renderer2d::init(camera);
@@ -28,6 +28,7 @@ void Game::onCreate()
   };
 
   pain::Application::Get().addImGuiInstance((ImGuiInstance *)this);
+  m_points = 0;
 }
 
 void Game::onUpdate(double deltaTime)
@@ -53,6 +54,7 @@ void Game::onUpdate(double deltaTime)
       reviveObstacle(m_index, randAngle, true);
       m_index = (m_index + 1) % m_numberOfObstacles;
       reviveObstacle(m_index, randAngle, false);
+      m_points++;
     }
 
     // change obstacle color
@@ -66,9 +68,28 @@ void Game::onUpdate(double deltaTime)
                        ->getComponent<pain::NativeScriptComponent>()
                        .instance;
       inst->changeColor(color);
-      // LOG_I("intersect {}", checkIntersection(*m_pplayer, *obstacle, i));
-      // m_collision = checkIntersection(*m_pplayer, *obstacle, i);
+      // no extra life for now
+      if (checkIntersection(*m_pplayer, *obstacle, i))
+        afterLosing();
     }
+  }
+}
+
+void Game::afterLosing()
+{
+  m_loses++;
+  m_points = 0;
+  // reset Player position
+  ((PlayerController *)m_pplayer->getComponent<pain::NativeScriptComponent>()
+       .instance)
+      ->resetPosition();
+  // clear obstacles
+  for (char i = 0; i < m_numberOfObstacles; i++) {
+    Obstacles *obstacle = (Obstacles *)m_obstacles.at(i).get();
+    auto *inst = (ObstaclesController *)obstacle
+                     ->getComponent<pain::NativeScriptComponent>()
+                     .instance;
+    inst->revive(0, 0, false);
   }
 }
 
@@ -187,6 +208,8 @@ const void Game::onImGuiUpdate()
   ImGui::SeparatorText("Info");
   ImGui::Text("Obstacle Spawn counter: %.2f seconds", m_obstaclesInterval);
   ImGui::Text("Last Obstacle index: %.2d", m_index);
+  ImGui::Text("Points: %.4d", m_points);
+  ImGui::Text("Loses: %.4d", m_loses);
   // ImGui::Text("Collision: %s", m_collision ? "true" : "false");
   ImGui::End();
 }

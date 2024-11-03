@@ -23,8 +23,8 @@ pain::Application *pain::CreateApplication()
 {
   LOG_T("Creating app");
   const char *title = "Developing Pain";
-  const int width = 800;
-  const int height = 600;
+  const int width = 1024;
+  const int height = 768;
   return new Sandbox(title, width, height);
 }
 

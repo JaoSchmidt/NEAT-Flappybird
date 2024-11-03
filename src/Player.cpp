@@ -31,6 +31,11 @@ void PlayerController::onCreate()
   m_maxVelY = 2.f;
   m_displayUpdates = false;
   m_emissionInterval = 0.02f;
+  pain::ParticleSprayComponent &psc =
+      getComponent<pain::ParticleSprayComponent>();
+  psc.m_lifeTime = 0.7f;
+  psc.m_randSizeFactor = 1.f;
+  psc.m_sizeChangeSpeed = 0.15f;
 }
 
 void PlayerController::onRender(double currentTime)

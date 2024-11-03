@@ -30,7 +30,7 @@ void ObstaclesController::revive(float obstacleSpeed, float height,
   mc.m_velocityDir.x = obstacleSpeed;
   // WARN: This value "1.5f" to put all obstacles hidden on the right of the
   // screen might not work depending on the resolution. Consider alternatives
-  tc.m_position = glm::vec3(1.5f, height, 0.f);
+  tc.m_position = glm::vec3(2.f, height, 0.f);
 }
 
 bool ObstaclesController::checkIntersection(const Player &player)

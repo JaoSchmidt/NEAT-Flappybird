@@ -5,6 +5,8 @@
 #include <pain.h>
 #include <vector>
 
+class Individual;
+
 struct InnovationStatic {
   int m_innovation;
   int m_InNodeId;
@@ -38,6 +40,8 @@ struct ConnectionGene {
   ConnectionGene(ConnectionGene &&o) = default;
   ConnectionGene &operator=(ConnectionGene &&o) = default;
 
+  ConnectionGene clone() const { return ConnectionGene(*this); }
+
 private:
   COPIES(ConnectionGene); // set copy constructor and assign as private
 };
@@ -55,6 +59,7 @@ struct NodeGene {
 
   NodeGene(NodeGene &&o) = default;
   NodeGene &operator=(NodeGene &&o) = default;
+  NodeGene clone() const { return NodeGene(*this); }
 
 private:
   COPIES(NodeGene); // set copy constructor and assign as private
@@ -62,7 +67,6 @@ private:
 
 // all genes
 struct Genome {
-  int m_genome_id;
   static int m_num_inputs;
   static int m_num_ouputs;
   std::vector<NodeGene> m_neurons;
@@ -77,14 +81,15 @@ struct Genome {
   std::vector<double> run(const std::vector<double> &inputs);
 
   // clang-format off
-  Genome(int genome_id, int num_inputs, int num_outputs)
-      : m_genome_id(genome_id){}
+  Genome() = default;
   Genome(Genome &&o)
-      : m_genome_id(o.m_genome_id), m_neurons(std::move(o.m_neurons)),
-        m_links(std::move(o.m_links)){}
+      : m_neurons(std::move(o.m_neurons)),
+        m_links(std::move(o.m_links)),
+        m_layers(std::move(o.m_layers)){}
   // clang-format on
 
 private:
+  friend class Individual;
   int getLayerIndexDistance(int inLayerId, int outLayerId)
   {
     auto inLayerIt = std::find(m_layers.begin(), m_layers.end(), inLayerId);

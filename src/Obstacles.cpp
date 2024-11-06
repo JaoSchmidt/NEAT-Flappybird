@@ -8,6 +8,16 @@ Obstacles::Obstacles(pain::Scene *scene) : pain::GameObject(scene)
                                          glm::vec4(0.2f, 0.3f, 0.9f, 1.0f));
 }
 
+void ObstaclesController::onUpdate(double deltaTime)
+{
+  const pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
+  if (tc.m_position.x < DEFAULTXPOS && m_isUpsideDown && m_canCountPoints) {
+    (*m_points)++;
+    m_canCountPoints = false;
+  }
+  // LOG_I("tc = ({},{},{})", TP_VEC3(tc.m_position));
+}
+
 void ObstaclesController::changeColor(glm::vec3 color)
 {
   pain::TrianguleComponent &tgc = getComponent<pain::TrianguleComponent>();
@@ -15,14 +25,15 @@ void ObstaclesController::changeColor(glm::vec3 color)
 }
 
 void ObstaclesController::revive(float obstacleSpeed, float height,
-                                 bool upsideDown)
+                                 bool upsideDown, int *points)
 {
   pain::MovementComponent &mc = getComponent<pain::MovementComponent>();
   pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
   pain::TrianguleComponent &tgc = getComponent<pain::TrianguleComponent>();
+  m_points = points;
   tgc.m_color = {0.5f, 0.5f, 0.5f, 1.0f};
-
-  if (upsideDown)
+  m_isUpsideDown = upsideDown;
+  if (m_isUpsideDown)
     tgc.m_height = {0.8f, -2.f};
   else
     tgc.m_height = {0.8f, 2.f};
@@ -31,22 +42,5 @@ void ObstaclesController::revive(float obstacleSpeed, float height,
   // WARN: This value "1.5f" to put all obstacles hidden on the right of the
   // screen might not work depending on the resolution. Consider alternatives
   tc.m_position = glm::vec3(2.f, height, 0.f);
-}
-
-bool ObstaclesController::checkIntersection(const Player &player)
-{
-  // pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
-  // pain::TrianguleComponent &tgc = getComponent<pain::TrianguleComponent>();
-
-  // const float maxX = std::max(tc.m_position.x, tc.m_position.x +
-  // tgc.m_size.x); const float maxY = std::max(tc.m_position.y, tc.m_position.y
-  // + tgc.m_size.y); const float minX = std::min(tc.m_position.x,
-  // tc.m_position.x + tgc.m_size.x); const float minY =
-  // std::min(tc.m_position.y, tc.m_position.y + tgc.m_size.y);
-
-  // const pain::TransformComponent &playerTC =
-  //     player.getComponent<pain::TransformComponent>();
-  // return (playerTC.m_position.x >= minX && playerTC.m_position.x <= maxX &&
-  //         playerTC.m_position.y >= minY && playerTC.m_position.y <= maxY);
-  return false;
+  m_canCountPoints = true;
 }

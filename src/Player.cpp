@@ -1,5 +1,6 @@
 #include "Player.h"
 #include "ECS/Components/Particle.h"
+#include "pain.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -8,7 +9,7 @@
 Player::Player(pain::Scene *scene, std::shared_ptr<pain::Texture> &pTexture)
     : pain::GameObject(scene)
 {
-  addComponent<pain::TransformComponent>(glm::vec3(-0.6f, 0.0f, 0.0f));
+  addComponent<pain::TransformComponent>(glm::vec3(DEFAULTXPOS, 0.0f, 0.0f));
   // TODO: remove m_rotationSpeed from MovementComponent
   addComponent<pain::MovementComponent>(glm::vec3(0.f, 0.0f, 0.0f), 1.0f, 0.0f);
   addComponent<pain::RotationComponent>(glm::vec3(0.f, 1.f, 0.f), 315.f);
@@ -68,8 +69,6 @@ void PlayerController::onUpdate(double deltaTimeSec)
   pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
   pain::MovementComponent &mc = getComponent<pain::MovementComponent>();
   pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
-  pain::ParticleSprayComponent &psc =
-      getComponent<pain::ParticleSprayComponent>();
 
   if (m_jumpForce > 0.f)
     m_jumpForce = m_jumpForce - deltaTimeSec * m_dampingFactor;
@@ -78,8 +77,10 @@ void PlayerController::onUpdate(double deltaTimeSec)
 
   m_timeSinceLastEmission += deltaTimeSec;
   const Uint8 *state = SDL_GetKeyboardState(NULL);
-  if (state[SDL_SCANCODE_SPACE])
+  // LOG_I("scancode  {}", state[SDL_SCANCODE_SPACE]);
+  if (state[SDL_SCANCODE_SPACE] || m_automaticJump) {
     m_jumpForce = m_jumpImpulse;
+  }
 
   float acc;
   if (tc.m_position.y > 1.f) {
@@ -117,7 +118,7 @@ const void PlayerController::resetPosition()
 
   mc.m_rotationSpeed = 0.0f;
   m_pseudoVelocityX = 1.f;
-  tc.m_position = {-1.f, 0.f, 0.f};
+  tc.m_position = {-0.8f, 0.f, 0.f};
   mc.m_velocityDir = {0.f, 1.f, 0.f};
   rc.m_rotation = {0.f, 1.f, 0.f};
   rc.m_rotationAngle = 315.f;

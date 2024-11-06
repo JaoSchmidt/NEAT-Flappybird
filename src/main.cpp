@@ -2,6 +2,7 @@
 
 #include "Game.h"
 #include "ImGuiController.h"
+#include "NEAT/Population.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
@@ -10,8 +11,8 @@ class Sandbox : public pain::Application
 public:
   Sandbox(const char *title, int w, int h) : Application(title, w, h)
   {
-    pain::Scene *scene = new Game();
-    ((Game *)scene)->onCreate();
+    pain::Scene *scene = new Population();
+    ((Population *)scene)->onCreate();
     pushScene("main", scene);
     attachScene("main");
   }

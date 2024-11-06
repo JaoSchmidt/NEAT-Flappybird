@@ -1,7 +1,20 @@
 #include "NEAT/Individuals.h"
+#include "pain.h"
 #include <cstddef>
 
-Individual &Individual::crossover(const Individual &other) const
+// Calculates if should press space or not
+bool Individual::fit(const std::vector<double> &inputs)
+{
+  std::vector<double> outputs{
+      m_genome.run(inputs, m_config.m_numInputs, m_config.m_numOutputs)};
+  const bool jump = outputs[0] >= 0.5 ? true : false;
+
+  return jump;
+}
+
+Individual
+Individual::crossover(const Individual &other,
+                      std::vector<InnovationStatic> &populationInnovs) const
 {
   // Determine the fitter parent
   const Individual &fitterParent =
@@ -10,7 +23,7 @@ Individual &Individual::crossover(const Individual &other) const
       (m_fitness < other.m_fitness) ? *this : other;
 
   // Create a new genome for the offspring
-  Genome offspringGenome;
+  Genome offspringGenome{populationInnovs};
 
   // Crossover nodes with matching neuron IDs
   for (const auto &node : fitterParent.m_genome.m_neurons) {
@@ -22,13 +35,11 @@ Individual &Individual::crossover(const Individual &other) const
 
     if (matchIt != lessFitParent.m_genome.m_neurons.end()) {
       // Node with matching ID found, choose biases randomly from parents
-      double chosenBias = (m_config.m_rng.uniform<double>() < 0.5)
-                              ? node.m_bias
-                              : matchIt->m_bias;
+      double chosenBias =
+          (m_rng.uniform<double>() < 0.5) ? node.m_bias : matchIt->m_bias;
       ActivationFunction chosenActivationFunction =
-          (m_config.m_rng.uniform<double>() < 0.5)
-              ? node.m_activationFunction
-              : matchIt->m_activationFunction;
+          (m_rng.uniform<double>() < 0.5) ? node.m_activationFunction
+                                          : matchIt->m_activationFunction;
       offspringGenome.m_neurons.emplace_back(node.m_neuron_id, chosenBias,
                                              node.m_layer_id);
     } else {
@@ -48,9 +59,8 @@ Individual &Individual::crossover(const Individual &other) const
 
     if (matchIt != lessFitParent.m_genome.m_links.end()) {
       // Matching link found, randomly choose weight from either parent
-      double chosenWeight = (m_config.m_rng.uniform<double>() < 0.5)
-                                ? link.m_weight
-                                : matchIt->m_weight;
+      double chosenWeight =
+          (m_rng.uniform<double>() < 0.5) ? link.m_weight : matchIt->m_weight;
       offspringGenome.m_links.emplace_back(link.m_InNodeId, link.m_OutNodeId,
                                            chosenWeight, link.m_enable,
                                            link.m_innovation);
@@ -84,12 +94,12 @@ Individual &Individual::crossover(const Individual &other) const
       offspringGenome.m_links.push_back(excessLink.clone());
     }
   }
+  offspringGenome.m_layers = fitterParent.m_genome.m_layers;
 
   // Create the offspring Individual with a new genome and reset fitness
-  Individual *offspring =
-      new Individual(std::move(offspringGenome), 0.0, m_config);
-
-  return *offspring;
+  Individual offspring =
+      Individual(std::move(offspringGenome), m_config, m_rng);
+  return offspring;
 }
 
 double Individual::calculateDelta(const Individual &other) const
@@ -139,16 +149,24 @@ void Individual::mutateAddNeuron()
   if (m_genome.m_links.empty()) {
     return; // No connections to mutate
   }
+
   std::size_t index =
-      m_config.m_rng.uniform<std::size_t>(0, m_genome.m_links.size() - 1);
+      m_rng.uniform<std::size_t>(0, m_genome.m_links.size() - 1);
+  while (m_genome.m_links[index].m_enable == false) {
+    index = m_rng.uniform<std::size_t>(0, m_genome.m_links.size() - 1);
+  }
   ConnectionGene &selectedConnection = m_genome.m_links[index];
 
   // Call addNode with the selected connection gene
-  m_genome.addNode(selectedConnection);
+  m_genome.addNode(selectedConnection, m_config.m_numInputs,
+                   m_config.m_numOutputs);
 }
 
 void Individual::mutateAddLink()
 {
+  // alias for input and output size
+  int inTotal = m_config.m_numInputs;
+
   // Ensure there are neurons to choose from
   if (m_genome.m_neurons.size() < 2) {
     return; // Not enough neurons to connect
@@ -156,39 +174,59 @@ void Individual::mutateAddLink()
 
   // Select two random neurons
   std::size_t fromIndex =
-      m_config.m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
+      m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
   std::size_t toIndex =
-      m_config.m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
+      m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
 
   // Ensure we don't connect a neuron to itself
   while (fromIndex == toIndex) {
-    toIndex =
-        m_config.m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
+    toIndex = m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
   }
 
   // Create a new connection
-  ConnectionGene newConnection(
-      m_genome.m_neurons[fromIndex].m_neuron_id,
-      m_genome.m_neurons[toIndex].m_neuron_id,
-      0.0,  // weight can be initialized to 0.0 or some random value
-      true, // enabled
-      -1    // TODO: innovation ID to be determined
-  );
+  const int inputId = m_genome.m_neurons[fromIndex].m_neuron_id;
+  const int outputId = m_genome.m_neurons[toIndex].m_neuron_id;
 
-  // Add the new connection to the genome
-  m_genome.addConnection(std::move(newConnection));
+  // check if new link isn't connecting inputs nor connecting outputs
+  if (inputId < 0 && outputId < 0 && inputId > -inTotal && outputId > -inTotal)
+    return;
+
+  if (inputId < -inTotal && outputId < -inTotal)
+    return;
+
+  // check if there is already a disabled link
+  auto linkIt = std::find_if(m_genome.m_links.begin(), m_genome.m_links.end(),
+                             [&](const ConnectionGene &link) {
+                               return link.m_InNodeId == (int)fromIndex &&
+                                      link.m_OutNodeId == (int)toIndex;
+                             });
+  // if true, just enable it back
+  if (linkIt != m_genome.m_links.end()) {
+    linkIt->m_enable = true;
+  } else {
+    ConnectionGene newConnection(
+        inputId,        // input neuron id
+        outputId,       // output neuron id
+        replaceValue(), // weight can be initialized to 0.0 or some random value
+        true,           // enabled
+        m_genome.loadInnovation(inputId, outputId));
+
+    // Add the new connection to the genome
+    m_genome.addConnection(std::move(newConnection));
+  }
 }
 
 void Individual::mutateRemoveNeuron()
 {
   // Ensure there are neurons to choose from
-  if (m_genome.m_neurons.size() <= m_config.m_num_inputs) {
+  if (m_genome.m_neurons.size() <=
+      static_cast<unsigned>(m_config.m_numInputs)) {
     return; // Can't remove input neurons
   }
 
   // Select a random neuron that is not an input neuron
   std::size_t index =
-      m_config.m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
+      m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
 
   // Remove the neuron from the genome
   NodeGene &selectedNeuron = m_genome.m_neurons[index];
@@ -204,9 +242,38 @@ void Individual::mutateRemoveLink()
 
   // Select a random connection gene
   std::size_t index =
-      m_config.m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
+      m_rng.uniform<std::size_t>(0, m_genome.m_links.size() - 1);
 
   // Remove the connection from the genome
   ConnectionGene &selectedLink = m_genome.m_links[index];
   m_genome.removeConnection(selectedLink);
+}
+
+void Individual::nonStructuralMutate()
+{
+  // Mutate connection weights
+  for (auto &link : m_genome.m_links) {
+    if (m_rng.uniform<double>(0.0, 1.0) < m_config.m_mutationRate) {
+      // Apply mutation
+      if (m_rng.uniform<double>(0.0, 1.0) < m_config.m_replacementRate)
+        // Replace with a new value within the allowed range
+        link.m_weight = replaceValue();
+      else
+        // Adjust by a small delta
+        link.m_weight = mutateDelta(link.m_weight);
+    }
+  }
+
+  // Mutate neuron biases
+  for (auto &neuron : m_genome.m_neurons) {
+    if (m_rng.uniform<double>(0.0, 1.0) < m_config.m_biasMutationRate) {
+      // Apply mutation: either replace the bias or adjust it by a delta
+      if (m_rng.uniform<double>(0.0, 1.0) < m_config.m_biasReplacementRate)
+        // Replace with a new value within the allowed range
+        neuron.m_bias = replaceValue();
+      else
+        // Adjust by a small delta
+        neuron.m_bias = mutateDelta(neuron.m_bias);
+    }
+  }
 }

@@ -17,14 +17,18 @@ void Game::onCreate()
   auto texture =
       std::make_shared<pain::Texture>("resources/textures/Player.png");
   m_pplayer = std::make_unique<Player>(this, texture);
-  m_pplayer->addComponent<pain::NativeScriptComponent>()
-      .bind<PlayerController>();
+  pain::NativeScriptComponent &pNSC =
+      m_pplayer->addComponent<pain::NativeScriptComponent>();
+  pNSC.bind<PlayerController>();
+  initializeScripts(pNSC, *m_pplayer);
 
+  m_obstacles.reserve(m_numberOfObstacles);
   for (char i = 0; i < m_numberOfObstacles; i++) {
-    m_obstacles.push_back(std::make_unique<Obstacles>(this));
-    auto &o = m_obstacles[i]->addComponent<pain::NativeScriptComponent>();
-    o.bind<ObstaclesController>();
-    initializeScripts(o, *m_obstacles[i]);
+    m_obstacles.emplace_back(this);
+    pain::NativeScriptComponent &oNSC =
+        m_obstacles[i].addComponent<pain::NativeScriptComponent>();
+    oNSC.bind<ObstaclesController>();
+    initializeScripts(oNSC, m_obstacles[i]);
   };
 
   pain::Application::Get().addImGuiInstance((ImGuiInstance *)this);
@@ -54,7 +58,6 @@ void Game::onUpdate(double deltaTime)
       reviveObstacle(m_index, randAngle, true);
       m_index = (m_index + 1) % m_numberOfObstacles;
       reviveObstacle(m_index, randAngle, false);
-      m_points++;
     }
 
     // change obstacle color
@@ -63,13 +66,13 @@ void Game::onUpdate(double deltaTime)
                     0.4f + sin(waveColorRadians + M_PI * 3 / 4) * 0.6f // blue
     );
     for (char i = 0; i < m_numberOfObstacles; i++) {
-      Obstacles *obstacle = (Obstacles *)m_obstacles.at(i).get();
+      Obstacles &obstacle = m_obstacles.at(i);
       auto *inst = (ObstaclesController *)obstacle
-                       ->getComponent<pain::NativeScriptComponent>()
+                       .getComponent<pain::NativeScriptComponent>()
                        .instance;
       inst->changeColor(color);
       // no extra life for now
-      if (checkIntersection(*m_pplayer, *obstacle, i))
+      if (checkIntersection(*m_pplayer, obstacle, i))
         afterLosing();
     }
   }
@@ -85,19 +88,12 @@ void Game::afterLosing()
       ->resetPosition();
   // clear obstacles
   for (char i = 0; i < m_numberOfObstacles; i++) {
-    Obstacles *obstacle = (Obstacles *)m_obstacles.at(i).get();
+    Obstacles &obstacle = m_obstacles.at(i);
     auto *inst = (ObstaclesController *)obstacle
-                     ->getComponent<pain::NativeScriptComponent>()
+                     .getComponent<pain::NativeScriptComponent>()
                      .instance;
-    inst->revive(0, 0, false);
+    inst->revive(0, 0, false, &m_points);
   }
-}
-
-void Game::removeLife()
-{
-  m_lifes -= 1;
-  if (!m_lifes)
-    m_isRunning = false;
 }
 
 void Game::reviveObstacle(int index, float randomAngle, bool upsideDown)
@@ -106,9 +102,9 @@ void Game::reviveObstacle(int index, float randomAngle, bool upsideDown)
                            ? sin(randomAngle) * 0.7 + 0.75f + m_obstaclesSpacing
                            : sin(randomAngle) * 0.7 - 1.25f;
   ((ObstaclesController *)m_obstacles.at(index)
-       ->getComponent<pain::NativeScriptComponent>()
+       .getComponent<pain::NativeScriptComponent>()
        .instance)
-      ->revive(m_defaultObstacleSpeed, height, upsideDown);
+      ->revive(m_defaultObstacleSpeed, height, upsideDown, &m_points);
 }
 
 template <std::size_t T>
@@ -195,7 +191,7 @@ bool Game::checkIntersection(const Player &player, const Obstacles &obstacle,
 const void Game::onImGuiUpdate()
 {
   ImGui::Begin("Player Controller");
-  ImGui::Text("Parameters Settings");
+  ImGui::Text("Obstacles Parameters Settings");
   ImGui::InputInt("Number of Obstacles", &m_numberOfObstacles);
   ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
                     "%.3f");
@@ -210,6 +206,17 @@ const void Game::onImGuiUpdate()
   ImGui::Text("Last Obstacle index: %.2d", m_index);
   ImGui::Text("Points: %.4d", m_points);
   ImGui::Text("Loses: %.4d", m_loses);
-  // ImGui::Text("Collision: %s", m_collision ? "true" : "false");
+  ImGui::Text("TPS: %.1f", pain::Application::Get().getCurrentTPS());
+  ImGui::InputDouble("Time Multiplier",
+                     pain::Application::Get().getTimeMultiplier(), 0.1f, 1.0f,
+                     "%.3f");
+  if (ImGui::Button("Toogle Rendering")) {
+    m_rendering = !m_rendering;
+    if (m_rendering)
+      pain::Application::Get().disableRendering();
+    else
+      pain::Application::Get().enableRendering();
+  }
+  ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
   ImGui::End();
 }

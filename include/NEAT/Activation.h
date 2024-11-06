@@ -11,8 +11,6 @@ struct ActivationFunction {
   }
   // Overload operator() to call the function directly
   double operator()(double input) const { return function(input); }
-  // Constructor to set custom functions
-  ActivationFunction(std::function<double(double)> func) : function(func) {}
 };
 
 // Sigmoid function implementation

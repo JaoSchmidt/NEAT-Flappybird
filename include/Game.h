@@ -14,9 +14,8 @@ public:
   const void onImGuiUpdate();
   void onEvent(const SDL_Event &event);
 
-  void removeLife();
-
 private:
+  bool m_rendering = true;
   // parameters
   int m_numberOfObstacles = 20;
   float m_obstaclesSpacing = 0.35f;
@@ -27,8 +26,6 @@ private:
   float m_colorInterval = 20.;  // color waves
   float m_heightInterval = 20.; // height waves
 
-  // non-parameters
-  int m_lifes = 5;
   float m_waveColor = 90.;
   float m_waveHeight = 90.;
   bool m_isRunning = true;
@@ -39,7 +36,7 @@ private:
   std::shared_ptr<ImGuiController> m_shapeController;
   std::unique_ptr<Player> m_pplayer;
 
-  std::vector<std::unique_ptr<Obstacles>> m_obstacles = {};
+  std::vector<Obstacles> m_obstacles = {};
   void reviveObstacle(int index, float random, bool upsideDown);
   bool checkIntersection(const Player &player, const Obstacles &obstacle,
                          int index);

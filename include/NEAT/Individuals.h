@@ -9,6 +9,7 @@ struct NeatConfig {
   int m_populationSize;
   int m_numInputs;
   int m_numOutputs;
+  int m_generation;
   // non-structural mutation
   double m_initMean, m_initStdev, m_min, m_max;
   double m_mutationRate;
@@ -32,14 +33,18 @@ public:
   double m_fitness = 0.0;
   Individual(Genome genome, const NeatConfig &config, const pain::RNG &rng)
       : m_config{config}, m_rng{rng}, m_genome(std::move(genome)){};
+  Individual(Genome genome, const NeatConfig &config, const pain::RNG &rng,
+             int speciesID)
+      : m_speciesID(speciesID), m_config{config}, m_rng{rng},
+        m_genome(std::move(genome)){};
 
   bool fit(const std::vector<double> &inputs);
   double clamp(double x) const // or "clip" is also a possible name
   {
     return std::min(m_config.m_max, std::max(m_config.m_min, x));
   }
-  double replaceValue() { return clamp(m_rng.gaussian<double>()); }
-  double mutateDelta(double value)
+  double replaceValue() const { return clamp(m_rng.gaussian<double>()); }
+  double mutateDelta(double value) const
   {
     double delta = clamp(m_rng.gaussian<double>(0.0, m_config.m_mutationPower));
     return clamp(value + delta);
@@ -56,7 +61,10 @@ public:
   // Delta Formula δ
   double calculateDelta(const Individual &other) const;
 
-  Individual clone() const { return Individual(m_genome, m_config, m_rng); }
+  Individual clone() const
+  {
+    return Individual(m_genome, m_config, m_rng, m_speciesID);
+  }
   ~Individual() = default;
   Individual(Individual &&o)
       : m_speciesID(o.m_speciesID), m_fitness(o.m_fitness),

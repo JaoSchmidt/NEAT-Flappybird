@@ -2,6 +2,7 @@
 #include "ECS/Components/Movement.h"
 #include "SDL_events.h"
 #include <algorithm>
+#include <iostream>
 #include <utility>
 
 void Population::onRender(double currentTime) {}
@@ -41,9 +42,10 @@ void Population::onCreate()
   // ============================================================ //
   m_points = 0;
 
-  m_config.m_populationSize = 10; // Set the population size
-  m_config.m_numInputs = 5;       // Set the number of inputs
-  m_config.m_numOutputs = 1;      // Set the number of outputs
+  m_config.m_generation = 0;
+  m_config.m_populationSize = 150; // Set the population size
+  m_config.m_numInputs = 5;        // Set the number of inputs
+  m_config.m_numOutputs = 1;       // Set the number of outputs
 
   // Non-structural mutation parameters
   m_config.m_initMean = 0.0;             // Set the initial mean
@@ -70,8 +72,9 @@ void Population::onCreate()
 
   m_individuals.reserve(m_config.m_populationSize);
   for (int i = 0; i < m_config.m_populationSize; ++i) {
-    m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng);
+    m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng, 0);
   }
+  m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
 
   m_currentObsIndex = m_index;
   pain::TransformComponent &tc =
@@ -167,11 +170,12 @@ void Population::afterLosing()
 {
   // update fitness
   m_individuals[m_currentIndIndex].m_fitness = m_points;
-  LOG_I("Individual {}, Pontuation = {}", m_currentIndIndex, m_points);
-  if (m_currentIndIndex == m_config.m_populationSize - 1)
-    updateGeneration();
-  m_currentIndIndex = (m_currentIndIndex + 1) % m_config.m_populationSize;
-
+  // LOG_I("Individual {}, Pontuation = {}", m_currentIndIndex, m_points);
+  if (m_toggleNEAT) {
+    if (m_currentIndIndex == m_config.m_populationSize - 1)
+      updateGeneration();
+    m_currentIndIndex = (m_currentIndIndex + 1) % m_config.m_populationSize;
+  }
   m_loses++;
   m_points = 0;
   // reset Player position
@@ -206,7 +210,7 @@ void Population::speciateFitness()
 
 void Population::classifyAllSpecies()
 {
-  std::unordered_map<int, Individual>
+  std::map<int, Individual>
       newSpeciesRepresentatives; // Temporary storage for updated
                                  // representatives
 
@@ -223,7 +227,7 @@ void Population::classifyAllSpecies()
         foundSpecies = true;
 
         // Update species representative if individual has better fitness
-        if (individual.m_fitness > representative.m_fitness) {
+        if (individual.m_fitness >= representative.m_fitness) {
           newSpeciesRepresentatives.emplace(speciesID, individual.clone());
         }
         break;
@@ -231,8 +235,8 @@ void Population::classifyAllSpecies()
     }
 
     // If no compatible species was found, create a new one
-    int nextSpeciesID = m_speciesRepresentatives.size();
     if (!foundSpecies) {
+      int nextSpeciesID = m_speciesRepresentatives.size();
       individual.m_speciesID = nextSpeciesID;
       newSpeciesRepresentatives.emplace(nextSpeciesID, individual.clone());
     }
@@ -315,6 +319,13 @@ void Population::updateGeneration()
   classifyAllSpecies();
   speciateFitness();
 
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(2);
+  for (Individual &ind : m_individuals) {
+    oss << ind.m_fitness << ", ";
+  }
+  LOG_T("{}: [{}]", ++m_config.m_generation - 1, oss.str());
+
   // selection
   std::vector<Individual> selection =
       tournamentSelection(m_individuals.size() / 2, m_individuals.size() * 0.1);
@@ -329,13 +340,13 @@ Genome Population::createMinimalGenome(int individualIndex)
 
   // inputs
   neurons.reserve(6);
-  neurons.emplace_back(-1, 0.0, 0); // obstacleX
-  neurons.emplace_back(-2, 0.0, 0); // obstacleY
-  neurons.emplace_back(-3, 0.0, 0); // playerY
-  neurons.emplace_back(-4, 0.0, 0); // playerVy
-  neurons.emplace_back(-5, 0.0, 0); // playerRot
+  neurons.emplace_back(-1, m_rng.gaussian<double>()); // obstacleX
+  neurons.emplace_back(-2, m_rng.gaussian<double>()); // obstacleY
+  neurons.emplace_back(-3, m_rng.gaussian<double>()); // playerY
+  neurons.emplace_back(-4, m_rng.gaussian<double>()); // playerVy
+  neurons.emplace_back(-5, m_rng.gaussian<double>()); // playerRot
   // outputs
-  neurons.emplace_back(outputId, 0.0, 1);
+  neurons.emplace_back(outputId, 0.0);
 
   // links and innovations
   std::vector<ConnectionGene> links = {};
@@ -474,5 +485,9 @@ const void Population::onImGuiUpdate()
       pain::Application::Get().enableRendering();
   }
   ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
+  if (ImGui::Button("Toogle NEAT")) {
+    m_toggleNEAT = !m_toggleNEAT;
+  }
+  ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
   ImGui::End();
 }

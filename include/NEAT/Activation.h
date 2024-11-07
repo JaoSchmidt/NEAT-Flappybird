@@ -10,7 +10,7 @@ struct ActivationFunction {
   {
   }
   // Overload operator() to call the function directly
-  double operator()(double input) const { return function(input); }
+  const double operator()(double input) const { return function(input); }
 };
 
 // Sigmoid function implementation

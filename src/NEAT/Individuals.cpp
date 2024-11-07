@@ -12,10 +12,12 @@ bool Individual::fit(const std::vector<double> &inputs)
   return jump;
 }
 
-Individual
-Individual::crossover(const Individual &other,
-                      std::vector<InnovationStatic> &populationInnovs) const
+// clang-format off
+Individual Individual::crossover(
+  const Individual &other,
+  std::vector<InnovationStatic> &populationInnovs) const
 {
+  // clang-format on
   // Determine the fitter parent
   const Individual &fitterParent =
       (m_fitness >= other.m_fitness) ? *this : other;
@@ -40,8 +42,7 @@ Individual::crossover(const Individual &other,
       ActivationFunction chosenActivationFunction =
           (m_rng.uniform<double>() < 0.5) ? node.m_activationFunction
                                           : matchIt->m_activationFunction;
-      offspringGenome.m_neurons.emplace_back(node.m_neuron_id, chosenBias,
-                                             node.m_layer_id);
+      offspringGenome.m_neurons.emplace_back(node.m_neuron_id, chosenBias);
     } else {
       // No matching node, inherit the node from the fitter parent
       offspringGenome.m_neurons.push_back(node.clone());
@@ -145,6 +146,9 @@ double Individual::calculateDelta(const Individual &other) const
 
 void Individual::mutateAddNeuron()
 {
+  if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probAddNode) {
+    return; // Mutation does not occur
+  }
   // Ensure there are links to choose from
   if (m_genome.m_links.empty()) {
     return; // No connections to mutate
@@ -164,6 +168,9 @@ void Individual::mutateAddNeuron()
 
 void Individual::mutateAddLink()
 {
+  if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probAddConn) {
+    return; // Mutation does not occur
+  }
   // alias for input and output size
   int inTotal = m_config.m_numInputs;
 
@@ -178,20 +185,19 @@ void Individual::mutateAddLink()
   std::size_t toIndex =
       m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
 
-  // Ensure we don't connect a neuron to itself
-  while (fromIndex == toIndex) {
-    toIndex = m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
-  }
-
   // Create a new connection
   const int inputId = m_genome.m_neurons[fromIndex].m_neuron_id;
-  const int outputId = m_genome.m_neurons[toIndex].m_neuron_id;
+  int outputId = m_genome.m_neurons[toIndex].m_neuron_id;
+
+  // Ensure we don't connect a neuron to itself
+  while (inputId == outputId) {
+    toIndex = m_rng.uniform<std::size_t>(0, m_genome.m_neurons.size() - 1);
+    outputId = m_genome.m_neurons[toIndex].m_neuron_id;
+  }
 
   // check if new link isn't connecting inputs nor connecting outputs
-  if (inputId < 0 && outputId < 0 && inputId > -inTotal && outputId > -inTotal)
-    return;
-
-  if (inputId < -inTotal && outputId < -inTotal)
+  // HACK: This is hardcoded for the problem. Fix later
+  if (inputId < 0 && outputId < 0)
     return;
 
   // check if there is already a disabled link
@@ -212,12 +218,16 @@ void Individual::mutateAddLink()
         m_genome.loadInnovation(inputId, outputId));
 
     // Add the new connection to the genome
-    m_genome.addConnection(std::move(newConnection));
+    m_genome.addConnectionAndSort(std::move(newConnection),
+                                  m_config.m_numInputs);
   }
 }
 
 void Individual::mutateRemoveNeuron()
 {
+  if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probRmNode) {
+    return; // Mutation does not occur
+  }
   // Ensure there are neurons to choose from
   if (m_genome.m_neurons.size() <=
       static_cast<unsigned>(m_config.m_numInputs)) {
@@ -230,11 +240,14 @@ void Individual::mutateRemoveNeuron()
 
   // Remove the neuron from the genome
   NodeGene &selectedNeuron = m_genome.m_neurons[index];
-  m_genome.removeNode(selectedNeuron);
+  m_genome.removeNode(selectedNeuron, m_config.m_numInputs);
 }
 
 void Individual::mutateRemoveLink()
 {
+  if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probRmConn) {
+    return; // Mutation does not occur
+  }
   // Ensure there are links to choose from
   if (m_genome.m_links.empty()) {
     return; // No connections to remove
@@ -246,7 +259,7 @@ void Individual::mutateRemoveLink()
 
   // Remove the connection from the genome
   ConnectionGene &selectedLink = m_genome.m_links[index];
-  m_genome.removeConnection(selectedLink);
+  m_genome.removeConnection(selectedLink, m_config.m_numInputs);
 }
 
 void Individual::nonStructuralMutate()

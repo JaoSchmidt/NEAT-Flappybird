@@ -19,11 +19,13 @@ private:
   // forced delta time equal 1/60
   static constexpr double m_deltaTime = static_cast<double>(1) / 60;
   bool m_rendering = true;
+  bool m_toggleNEAT = true;
+
   NeatConfig m_config;
   pain::RNG m_rng;
   std::vector<InnovationStatic> m_populationInnov;
   std::vector<Individual> m_individuals;
-  std::unordered_map<int, Individual> m_speciesRepresentatives;
+  std::map<int, Individual> m_speciesRepresentatives;
   // population stuff
   Genome createMinimalGenome(int individualIndex);
   void updateGeneration();   // speciate + select + combine + mutate

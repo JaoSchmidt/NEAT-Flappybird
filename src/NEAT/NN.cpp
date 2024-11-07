@@ -1,6 +1,6 @@
 #include "NEAT/NN.h"
 #include "pain.h"
-#include <iterator>
+#include <cmath>
 #include <vector>
 
 struct NodeInput {
@@ -8,11 +8,11 @@ struct NodeInput {
   bool activationFunctionApplied = false;
 };
 
-std::vector<double> Genome::run(const std::vector<double> &inputs,
-                                int numInputs, int numOutputs)
+const std::vector<double> Genome::run(const std::vector<double> &inputs,
+                                      int numInputs, int numOutputs) const
 {
-  std::map<int, NodeInput> nodeOutputs;
-  // nodeOutputs.reserve(m_links.size());
+  std::unordered_map<int, NodeInput> nodeOutputs;
+  nodeOutputs.reserve(m_links.size());
 
   // 1. Initialize input nodes with provided input values
   for (auto &node : m_neurons) {
@@ -38,11 +38,15 @@ std::vector<double> Genome::run(const std::vector<double> &inputs,
           m_neurons.begin(), m_neurons.end(),
           [&](const NodeGene &n) { return n.m_neuron_id == link.m_InNodeId; });
 
-      ASSERT(nodeIt != m_neurons.end(),
-             "outputNodeId = {} wasn't found inside m_neurons",
-             link.m_InNodeId);
+      // FIX: by commenting this, it means we can guarantee no dangling nodes
+      // links if (nodeIt == m_neurons.end()) {
+      //   PLOG_T("nodeIt->m_neuron_id = {}", nodeIt->m_neuron_id);
+      //   PLOG_T("nodeIt->m_bias = {}", nodeIt->m_bias);
+      //   ASSERT(nodeIt != m_neurons.end(),
+      //          "NodeId = {} wasn't found inside m_neurons", link.m_InNodeId);
+      // }
       inputNode.outputValue =
-          nodeIt->m_activationFunction(inputNode.outputValue);
+          nodeIt->m_activationFunction.function(inputNode.outputValue);
       inputNode.activationFunctionApplied = true;
     }
 
@@ -71,59 +75,6 @@ std::vector<double> Genome::run(const std::vector<double> &inputs,
   return outputs;
 }
 
-// WARNING: This will create a new layer if necessary
-int Genome::sameLayerLinkAdition(int nodeId)
-{
-  const int layerId = getNodeLayer(nodeId);
-  auto layerPos = std::find(m_layers.begin(), m_layers.end(), layerId);
-
-  // getting the layerId from the layer below
-  const int lowerLayerId = *(--layerPos);
-
-  // checks if anyone already exists
-  const bool nodeHasLowerLayerConnection = std::any_of(
-      m_links.begin(), m_links.end(), [&](const ConnectionGene &link) {
-        return link.m_OutNodeId == nodeId &&
-               getNodeLayer(link.m_InNodeId) == lowerLayerId;
-      });
-
-  if (nodeHasLowerLayerConnection) {
-    // Create a new layer if m_InNodeId is already connected to the layer
-    // below
-    int newLayerId = m_layers.size();
-    m_layers.insert(layerPos, newLayerId);
-    return newLayerId;
-  } else {
-    // Move m_InNodeId to a lower layer
-    return lowerLayerId;
-  }
-}
-
-// WARNING: This will create a new layer if necessary
-int Genome::lowerLayerNodeAdition(int inputNodeId, int outputNodeId)
-{
-  const int inputLayerId = getNodeLayer(inputNodeId);
-  const int outputLayerId = getNodeLayer(outputNodeId);
-
-  auto inputLayerIndex =
-      std::find(m_layers.begin(), m_layers.end(), inputLayerId);
-  const auto outputLayerIndex =
-      std::find(m_layers.begin(), m_layers.end(), outputLayerId);
-
-  int distance = std::distance(inputLayerIndex, outputLayerIndex);
-  // this means there is at least one more node betwen input and output layer
-  if (distance > 1) {
-    return *(++inputLayerIndex);
-  } else if (distance == 1) { // means there is no layer betwen both layers
-    int newLayerId = m_layers.size();
-    m_layers.insert(outputLayerIndex, newLayerId);
-    return newLayerId;
-  } else {
-    PLOG_E("Distance between added nodes during node addition is less than 1");
-    throw("Distance between added nodes during node addition is less than 1");
-  }
-}
-
 int Genome::loadInnovation(int inputNodeId, int outputNodeId)
 {
   int innov = -1;
@@ -144,51 +95,92 @@ int Genome::loadInnovation(int inputNodeId, int outputNodeId)
   return innov;
 }
 
-void Genome::addConnection(ConnectionGene connGene)
+void Genome::addConnectionAndSort(ConnectionGene connGene, int numInputs)
 {
-  // Find the input and output nodes by their IDs
-
-  int &inLayerId = getNodeLayer(connGene.m_InNodeId);
-  int &outLayerId = getNodeLayer(connGene.m_OutNodeId);
-
-  // Calculate the index distance between the input and output layers
-  int indexDistance = getLayerIndexDistance(inLayerId, outLayerId);
-
-  // ------------------------------------------------------------------------ //
-  // Case 1: We don't know if the mutated link is in the right direction
-  if (indexDistance < 0) {
-    std::swap(connGene.m_InNodeId, connGene.m_OutNodeId);
-    indexDistance = -indexDistance; // no need to recalculate
+  // check if there is a cycle
+  if (hasPathDFS(connGene.m_OutNodeId, connGene.m_InNodeId)) {
+    return;
   }
-  // ------------------------------------------------------------------------ //
-  if (indexDistance > 0) {
-    // Case 2: Check if the connection goes to a higher layer
-    // Find the position to insert in m_links based on layer ordering
-    auto pos = std::lower_bound(
-        m_links.begin(), m_links.end(), connGene,
-        [&](const ConnectionGene &a, const ConnectionGene &input) {
-          return getLayerIndexDistance(getNodeLayer(a.m_InNodeId),
-                                       getNodeLayer(input.m_InNodeId)) > 0;
-        });
 
-    // Insert the new connection at the found position
-    m_links.insert(pos, std::move(connGene));
+  m_links.push_back(std::move(connGene));
 
-    // ----------------------------------------------------------------------
-  } else if (indexDistance == 0) {
-    // Case 3: If inLayerId equals outLayerId
-    inLayerId = sameLayerLinkAdition(connGene.m_InNodeId);
+  topologySortNN(numInputs);
+}
 
-    // Re-insert the connection now that m_InNodeId's layer is adjusted
-    auto pos = std::lower_bound(
-        m_links.begin(), m_links.end(), connGene,
-        [&](const ConnectionGene &a, const ConnectionGene &input) {
-          return getLayerIndexDistance(getNodeLayer(a.m_InNodeId),
-                                       getNodeLayer(input.m_InNodeId)) > 0;
-        });
+void Genome::topologySortNN(int numInputs)
+{
+  std::vector<int> sortedNodes;
+  std::unordered_map<int, int> inDegree;
 
-    m_links.insert(pos, std::move(connGene));
+  // Count number of incomming connections
+  for (const auto &link : m_links) {
+    inDegree[link.m_OutNodeId]++;
   }
+
+  // Start with inputs with inDegree of zero
+  std::vector<int> zeroInDegreeNodes;
+  zeroInDegreeNodes.reserve(numInputs);
+  for (const auto &neuron : m_neurons) {
+    if (inDegree[neuron.m_neuron_id] == 0) {
+      zeroInDegreeNodes.push_back(neuron.m_neuron_id);
+    }
+  }
+
+  // Process nodes in topological order
+  while (!zeroInDegreeNodes.empty()) {
+    int nodeId = zeroInDegreeNodes.back();
+    zeroInDegreeNodes.pop_back();
+    sortedNodes.push_back(nodeId);
+
+    for (auto &link : m_links) {
+      if (link.m_InNodeId == nodeId) {
+        inDegree[link.m_OutNodeId]--;
+        if (inDegree[link.m_OutNodeId] == 0) {
+          zeroInDegreeNodes.push_back(link.m_OutNodeId);
+        }
+      }
+    }
+  }
+
+  // Sort links based on sorted nodes order
+  std::unordered_map<int, int> nodeOrder;
+  for (size_t i = 0; i < sortedNodes.size(); ++i) {
+    nodeOrder[sortedNodes[i]] = i;
+  }
+  std::sort(m_links.begin(), m_links.end(),
+            [&](const ConnectionGene &a, const ConnectionGene &b) {
+              return nodeOrder[a.m_InNodeId] < nodeOrder[b.m_InNodeId];
+            });
+}
+
+bool Genome::hasPathDFS(int startNode, int targetNode) const
+{
+  // Use depth first search to check if there is a path from target to start
+  std::unordered_set<int> visited;
+  std::vector<int> stack = {targetNode};
+
+  // just in case
+  if (startNode == targetNode)
+    return true;
+
+  while (!stack.empty()) {
+    int current = stack.back();
+    stack.pop_back();
+
+    if (current == startNode) {
+      return true; // Somehow reached startNode, hence there is a path
+    }
+
+    visited.insert(current);
+
+    for (const auto &link : m_links) {
+      // Add all outgoing connections from the current node
+      if (link.m_InNodeId == current && !visited.count(link.m_OutNodeId)) {
+        stack.push_back(link.m_OutNodeId);
+      }
+    }
+  }
+  return false; // No path found, safe to add link
 }
 
 void Genome::addNode(ConnectionGene &oldConnGene, int numInputs, int numOutputs)
@@ -199,13 +191,8 @@ void Genome::addNode(ConnectionGene &oldConnGene, int numInputs, int numOutputs)
   // Create a new node ID
   int newNodeId = oldConnGene.m_innovation;
 
-  // Will create a new layer or use an existing layer below
-  int newNodeLayer =
-      lowerLayerNodeAdition(oldConnGene.m_InNodeId, oldConnGene.m_OutNodeId);
-  // calculate layer position
-
   // Create a new node with bias 0.0 and default sigmoid activation
-  m_neurons.emplace_back(newNodeId, 0.0, newNodeLayer);
+  m_neurons.emplace_back(newNodeId, 0.0);
 
   // Search in m_globalInnovations for the first link
   int innovId1 = loadInnovation(oldConnGene.m_InNodeId, newNodeId);
@@ -213,43 +200,64 @@ void Genome::addNode(ConnectionGene &oldConnGene, int numInputs, int numOutputs)
 
   // Add two new connections:
   // 1. Connection from old input node to new node with weight 1.0
-  m_links.emplace_back(oldConnGene.m_InNodeId, newNodeId, 1.0, true, innovId1);
-
+  ConnectionGene weight1 = {oldConnGene.m_InNodeId, newNodeId, 1.0, true,
+                            innovId1};
   // 2. Connection from new node to the old output node with the original weight
-  m_links.emplace_back(newNodeId, oldConnGene.m_OutNodeId, oldConnGene.m_weight,
-                       true, innovId2);
+  ConnectionGene weightOld = {newNodeId, oldConnGene.m_OutNodeId,
+                              oldConnGene.m_weight, true, innovId2};
+
+  auto oldConnGeneIt =
+      std::find_if(m_links.begin(), m_links.end(),
+                   [&oldConnGene](const ConnectionGene &conn) {
+                     return conn.m_innovation == oldConnGene.m_innovation;
+                   });
+
+  // Insert both connections at once before the found position
+  if (oldConnGeneIt != m_links.end()) {
+    m_links.insert(oldConnGeneIt, {weight1, weightOld});
+  }
+  // HACK: this should be necessary but idk
+  topologySortNN(numInputs);
 }
 
-const bool willIsolateNodesIfRemoved(const std::vector<ConnectionGene> &m_links,
-                                     ConnectionGene &link)
+const bool Genome::willIsolateInNode(const ConnectionGene &link) const
 {
   // Lambda function to check if a node has outgoing connections
   const auto hasOutputs = [&](int nodeId) {
-    return std::any_of(m_links.begin(), m_links.end(),
-                       [&](const ConnectionGene &existingLink) {
-                         return existingLink.m_InNodeId == nodeId &&
-                                existingLink.m_innovation != link.m_innovation;
-                       });
-  };
-
-  // Lambda function to check if a node has incoming connections
-  const auto hasInputs = [&](int nodeId) {
-    return std::any_of(m_links.begin(), m_links.end(),
-                       [&](const ConnectionGene &existingLink) {
-                         return existingLink.m_OutNodeId == nodeId &&
-                                existingLink.m_innovation != link.m_innovation;
-                       });
+    return std::any_of(
+        m_links.begin(), m_links.end(),
+        [&](const ConnectionGene &existingLink) {
+          return existingLink.m_InNodeId == nodeId &&
+                 existingLink.m_innovation !=
+                     link.m_innovation; // prevents counting itself
+        });
   };
 
   // Check if removing this link will isolate either the input or output node
   const bool willIsolateInNode = !hasOutputs(link.m_InNodeId);
+  return willIsolateInNode;
+}
+const bool Genome::willIsolateOutNode(const ConnectionGene &link) const
+{
+  // Lambda function to check if a node has incoming connections
+  const auto hasInputs = [&](int nodeId) {
+    return std::any_of(
+        m_links.begin(), m_links.end(),
+        [&](const ConnectionGene &existingLink) {
+          return existingLink.m_OutNodeId == nodeId &&
+                 existingLink.m_innovation !=
+                     link.m_innovation; // prevents counting itself
+        });
+  };
+
+  // Check if removing this link will isolate either the input or output node
   const bool willIsolateOutNode = !hasInputs(link.m_OutNodeId);
-  return willIsolateOutNode && willIsolateInNode;
+  return willIsolateOutNode;
 }
 
-void Genome::removeConnection(ConnectionGene &link)
+void Genome::removeConnection(ConnectionGene &link, int numInputs)
 {
-  if (willIsolateNodesIfRemoved(m_links, link))
+  if (willIsolateInNode(link) || willIsolateOutNode(link))
     return;
   // Find and remove the specified link
   auto linkIt = std::remove_if(
@@ -259,12 +267,31 @@ void Genome::removeConnection(ConnectionGene &link)
                existingLink.m_innovation == link.m_innovation;
       });
   m_links.erase(linkIt, m_links.end());
+  topologySortNN(numInputs);
 }
 
-void Genome::removeNode(NodeGene &nodeGene)
+void Genome::removeNode(NodeGene &nodeGene, int numInputs)
 {
   // Check if the node is an input or output
   if (nodeGene.m_neuron_id < 0)
+    return;
+
+  // check foregoing links of nodeGene
+  bool isolationFound = std::any_of(
+      m_links.begin(), m_links.end(), [&](const ConnectionGene &link) {
+        return link.m_InNodeId == nodeGene.m_neuron_id &&
+               willIsolateOutNode(link);
+      });
+
+  isolationFound =
+      isolationFound ||
+      std::any_of(m_links.begin(), m_links.end(),
+                  [&](const ConnectionGene &link) {
+                    return link.m_InNodeId == nodeGene.m_neuron_id &&
+                           willIsolateInNode(link);
+                  });
+
+  if (isolationFound)
     return;
 
   // Remove the node from m_neurons
@@ -281,4 +308,6 @@ void Genome::removeNode(NodeGene &nodeGene)
                link.m_OutNodeId == nodeGene.m_neuron_id;
       });
   m_links.erase(linksIt, m_links.end());
+
+  topologySortNN(numInputs);
 }

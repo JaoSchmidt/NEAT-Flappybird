@@ -67,7 +67,6 @@ struct NodeGene {
 struct Genome {
   std::vector<NodeGene> m_neurons;
   std::vector<ConnectionGene> m_links;
-  std::vector<int> m_layers;
   std::vector<InnovationStatic> &m_globalInnovations;
 
   void addConnectionAndSort(ConnectionGene connGene, int numInputs);
@@ -92,8 +91,7 @@ private:
 public:
   ~Genome() = default;
   Genome(std::vector<InnovationStatic> &globalInnovations)
-      : m_neurons{}, m_links{}, m_layers{},
-        m_globalInnovations{globalInnovations}
+      : m_neurons{}, m_links{}, m_globalInnovations{globalInnovations}
   {
   }
 
@@ -101,14 +99,14 @@ public:
          std::vector<int> layers,
          std::vector<InnovationStatic> &globalInnovations)
       : m_neurons(std::move(neurons)), m_links(std::move(links)),
-        m_layers(std::move(layers)), m_globalInnovations(globalInnovations)
+        m_globalInnovations(globalInnovations)
   {
   }
 
   // Copy Constructor
   Genome(const Genome &other)
       : m_neurons(other.m_neurons), m_links(other.m_links),
-        m_layers(other.m_layers), m_globalInnovations(other.m_globalInnovations)
+        m_globalInnovations(other.m_globalInnovations)
   {
   }
   Genome &operator=(const Genome &other)
@@ -116,7 +114,6 @@ public:
     if (this != &other) {
       m_neurons = other.m_neurons;
       m_links = other.m_links;
-      m_layers = other.m_layers;
       m_globalInnovations = other.m_globalInnovations;
     }
     LOG_I("globalInnovations {}", m_globalInnovations.size());
@@ -124,7 +121,7 @@ public:
   }
   Genome(Genome &&other) noexcept
       : m_neurons(std::move(other.m_neurons)),
-        m_links(std::move(other.m_links)), m_layers(std::move(other.m_layers)),
+        m_links(std::move(other.m_links)),
         m_globalInnovations(other.m_globalInnovations)
   {
   }
@@ -133,7 +130,6 @@ public:
     if (this != &other) {
       m_neurons = std::move(other.m_neurons);
       m_links = std::move(other.m_links);
-      m_layers = std::move(other.m_layers);
       m_globalInnovations = other.m_globalInnovations;
     }
     return *this;

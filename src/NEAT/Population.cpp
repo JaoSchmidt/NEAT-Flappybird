@@ -1,9 +1,13 @@
 #include "NEAT/Population.h"
+#include "CoreFiles/Application.h"
+#include "CoreFiles/LogWrapper.h"
 #include "ECS/Components/Movement.h"
 #include "SDL_events.h"
+#include "pain.h"
 #include <algorithm>
 #include <iostream>
 #include <utility>
+#include <vector>
 
 void Population::onRender(double currentTime) {}
 void Population::onEvent(const SDL_Event &event) {}
@@ -37,7 +41,7 @@ void Population::onCreate()
 
   pain::Application::Get().addImGuiInstance((ImGuiInstance *)this);
   // pain::Application::Get().disableRendering();
-  *(pain::Application::Get().getTimeMultiplier()) = 30.0;
+  *(pain::Application::Get().getTimeMultiplier()) = 0.1;
 
   // ============================================================ //
   m_points = 0;
@@ -77,10 +81,6 @@ void Population::onCreate()
   m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
 
   m_currentObsIndex = m_index;
-  pain::TransformComponent &tc =
-      m_obstacles[m_currentObsIndex].getComponent<pain::TransformComponent>();
-  m_obstacleX = &tc.m_position.x;
-  m_obstacleY = &tc.m_position.y;
 
   pain::TransformComponent &ptc =
       m_pplayer->getComponent<pain::TransformComponent>();
@@ -102,7 +102,7 @@ int Population::getClosestObstacle(float playerPos)
     float &obstaclePosX = m_obstacles[index]
                               .getComponent<pain::TransformComponent>()
                               .m_position.x;
-    if (obstaclePosX > playerPos && obstaclePosX < 0.2) {
+    if (obstaclePosX > playerPos && obstaclePosX < 0.08) {
       return index;
     }
   }
@@ -117,19 +117,15 @@ void Population::onUpdate(double deltaTime)
     m_obstaclesInterval = m_maxInterval;
     const float randAngle = ((float)rand() / RAND_MAX) * M_PI * 2;
 
-    m_index = (m_index + 1) % m_numberOfObstacles;
     reviveObstacle(m_index, randAngle, true);
     m_index = (m_index + 1) % m_numberOfObstacles;
     reviveObstacle(m_index, randAngle, false);
+    m_index = (m_index + 1) % m_numberOfObstacles;
   }
   // check if m_points changed
   if (m_points > m_pointsChecker) {
     m_pointsChecker = m_points;
     m_currentObsIndex = getClosestObstacle(DEFAULTXPOS);
-    pain::TransformComponent &tc =
-        m_obstacles[m_currentObsIndex].getComponent<pain::TransformComponent>();
-    m_obstacleX = &tc.m_position.x;
-    m_obstacleY = &tc.m_position.y;
   }
 
   // check collision and losing state
@@ -141,20 +137,22 @@ void Population::onUpdate(double deltaTime)
       afterLosing();
       return;
     }
-    if (m_points > 300)
-      LOG_I("Individual {} of species {} reached 300 points", m_currentIndIndex,
-            m_individuals[m_currentIndIndex].m_speciesID);
+    if (m_points > 300) {
+      *(pain::Application::Get().getTimeMultiplier()) = 1.0;
+      pain::Application::Get().enableRendering();
+    }
   }
 
   // calculate space pressed probability
-  ASSERT(m_obstacleX != nullptr, "m_obstacleX is null");
-  ASSERT(m_obstacleY != nullptr, "m_obstacleY is null");
-  ASSERT(m_playerY != nullptr, "m_playerY is null");
-  ASSERT(m_playerVy != nullptr, "m_playerVy is null");
-  ASSERT(m_playerRot != nullptr, "m_playerRot is null");
-  if (m_individuals[m_currentIndIndex].fit({*m_obstacleX, *m_obstacleY,
-                                            *m_playerY, *m_playerVy,
-                                            *m_playerRot})) {
+  const glm::vec3 obsPos = m_obstacles[m_currentObsIndex]
+                               .getComponent<pain::TransformComponent>()
+                               .m_position;
+
+  if (obsPos.x < DEFAULTXPOS)
+    m_currentObsIndex = getClosestObstacle(DEFAULTXPOS);
+
+  if (m_individuals[m_currentIndIndex].fit(
+          {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot})) {
     // SDL_PushEvent not working
     ((PlayerController *)m_pplayer->getComponent<pain::NativeScriptComponent>()
          .instance)
@@ -190,29 +188,42 @@ void Population::afterLosing()
                      .instance;
     inst->revive(0, 0, false, &m_points);
   }
+  m_currentObsIndex = m_index;
 }
 
 void Population::speciateFitness()
 {
+  LOG_I("RepSize = {}, IndSize = {}", m_speciesRepresentatives.size(),
+        m_individuals.size());
   std::vector<int> speciesCount(m_speciesRepresentatives.size(), 0);
+  m_speciesInfo.clear();
+  m_speciesInfo.reserve(m_speciesRepresentatives.size());
 
   // Count individuals in each species
   for (const auto &individual : m_individuals) {
     speciesCount[individual.m_speciesID]++;
+  }
+  for (unsigned i = 0; i < speciesCount.size(); i++) {
+    m_speciesInfo.emplace(i, SpeciesFit(speciesCount[i], 0.0));
   }
 
   // Calculate shared fitness for each individual
   for (auto &individual : m_individuals) {
     int speciesSize = speciesCount[individual.m_speciesID];
     individual.m_fitness /= speciesSize; // Apply fitness sharing
+    m_speciesInfo[individual.m_speciesID].avereageFitness +=
+        individual.m_fitness;
+  }
+
+  // calculate stacked area graphic
+  for (unsigned i = 0; i < m_speciesInfo.size(); i++) {
+    if (m_speciesInfo[i].count != 0)
+      m_speciesInfo[i].avereageFitness /= m_speciesInfo[i].count;
   }
 }
 
 void Population::classifyAllSpecies()
 {
-  std::map<int, Individual>
-      newSpeciesRepresentatives; // Temporary storage for updated
-                                 // representatives
 
   for (auto &individual : m_individuals) {
     bool foundSpecies = false;
@@ -228,7 +239,7 @@ void Population::classifyAllSpecies()
 
         // Update species representative if individual has better fitness
         if (individual.m_fitness >= representative.m_fitness) {
-          newSpeciesRepresentatives.emplace(speciesID, individual.clone());
+          m_speciesRepresentatives.at(speciesID) = individual.clone();
         }
         break;
       }
@@ -238,13 +249,9 @@ void Population::classifyAllSpecies()
     if (!foundSpecies) {
       int nextSpeciesID = m_speciesRepresentatives.size();
       individual.m_speciesID = nextSpeciesID;
-      newSpeciesRepresentatives.emplace(nextSpeciesID, individual.clone());
+      m_speciesRepresentatives.emplace(nextSpeciesID, individual.clone());
     }
   }
-
-  // Update the list of species representatives with the new generation's
-  // representatives
-  m_speciesRepresentatives = std::move(newSpeciesRepresentatives);
 }
 
 std::vector<Individual>
@@ -320,15 +327,18 @@ void Population::updateGeneration()
   speciateFitness();
 
   std::ostringstream oss;
-  oss << std::fixed << std::setprecision(2);
-  for (Individual &ind : m_individuals) {
-    oss << ind.m_fitness << ", ";
+  oss << std::fixed << std::setprecision(8);
+  for (auto &species : m_speciesInfo) {
+    if (species.second.count != 0)
+      oss << "(" << species.first << ", " << species.second.count << ": "
+          << species.second.avereageFitness << "), ";
   }
-  LOG_T("{}: [{}]", ++m_config.m_generation - 1, oss.str());
+  LOG_T("{} (species, count: average): [{}]", ++m_config.m_generation - 1,
+        oss.str());
 
   // selection
   std::vector<Individual> selection =
-      tournamentSelection(m_individuals.size() / 2, m_individuals.size() * 0.1);
+      tournamentSelection(m_individuals.size() / 3, m_individuals.size() * 0.2);
   // mutation and recombination/crossover
   offspringAndMutate(std::move(selection));
 }
@@ -475,8 +485,10 @@ const void Population::onImGuiUpdate()
   ImGui::Text("TPS: %.1f", pain::Application::Get().getCurrentTPS());
   ImGui::Text("Current closest Index %d", m_currentObsIndex);
   ImGui::InputDouble("Time Multiplier",
-                     pain::Application::Get().getTimeMultiplier(), 0.1f, 1.0f,
+                     pain::Application::Get().getTimeMultiplier(), 100.0, 1.0,
                      "%.3f");
+  if (*pain::Application::Get().getTimeMultiplier() < 0)
+    *pain::Application::Get().getTimeMultiplier() = 1.0;
   if (ImGui::Button("Toogle Rendering")) {
     m_rendering = !m_rendering;
     if (m_rendering)
@@ -484,6 +496,12 @@ const void Population::onImGuiUpdate()
     else
       pain::Application::Get().enableRendering();
   }
+  if (ImGui::Button("Toogle auto time multiplier")) {
+    bool *a = pain::Application::Get().getIsSimulation();
+    *a = !(*a);
+  }
+  ImGui::Text("Auto Multiplier is %s",
+              pain::Application::Get().getIsSimulation() ? "ON" : "OFF");
   ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
   if (ImGui::Button("Toogle NEAT")) {
     m_toggleNEAT = !m_toggleNEAT;

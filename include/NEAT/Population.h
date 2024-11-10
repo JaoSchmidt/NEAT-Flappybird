@@ -5,6 +5,11 @@
 #include "Player.h"
 #include <vector>
 
+struct SpeciesFit {
+  int count = 0;
+  double avereageFitness = 0.0;
+};
+
 class Population : public pain::Scene, public pain::ImGuiInstance
 {
 
@@ -25,7 +30,8 @@ private:
   pain::RNG m_rng;
   std::vector<InnovationStatic> m_populationInnov;
   std::vector<Individual> m_individuals;
-  std::map<int, Individual> m_speciesRepresentatives;
+  std::unordered_map<int, Individual> m_speciesRepresentatives;
+  std::unordered_map<int, SpeciesFit> m_speciesInfo;
   // population stuff
   Genome createMinimalGenome(int individualIndex);
   void updateGeneration();   // speciate + select + combine + mutate
@@ -36,8 +42,6 @@ private:
   void offspringAndMutate(std::vector<Individual> selection);
 
   // inputs
-  float *m_obstacleX;
-  float *m_obstacleY;
   float *m_playerY;
   float *m_playerVy;
   float *m_playerRot;
@@ -81,8 +85,6 @@ private:
 public:
   ~Population()
   {
-    delete m_obstacleX;
-    delete m_obstacleY;
     delete m_playerY;
     delete m_playerVy;
     delete m_playerRot;

@@ -5,6 +5,13 @@
 // Calculates if should press space or not
 bool Individual::fit(const std::vector<double> &inputs)
 {
+
+  // std::ostringstream oss;
+  // oss << std::fixed << std::setprecision(8);
+  // for (auto &input : inputs) {
+  //   oss << input << ", ";
+  // }
+  // LOG_T("[{}]", oss.str());
   std::vector<double> outputs{
       m_genome.run(inputs, m_config.m_numInputs, m_config.m_numOutputs)};
   const bool jump = outputs[0] >= 0.5 ? true : false;
@@ -60,10 +67,12 @@ Individual Individual::crossover(
 
     if (matchIt != lessFitParent.m_genome.m_links.end()) {
       // Matching link found, randomly choose weight from either parent
-      double chosenWeight =
+      const double chosenWeight =
           (m_rng.uniform<double>() < 0.5) ? link.m_weight : matchIt->m_weight;
+      const bool isEnabled =
+          (m_rng.uniform<double>() < 0.5) ? link.m_enable : matchIt->m_enable;
       offspringGenome.m_links.emplace_back(link.m_InNodeId, link.m_OutNodeId,
-                                           chosenWeight, link.m_enable,
+                                           chosenWeight, isEnabled,
                                            link.m_innovation);
     } else {
       // No matching link, inherit from the fitter parent
@@ -95,11 +104,11 @@ Individual Individual::crossover(
       offspringGenome.m_links.push_back(excessLink.clone());
     }
   }
-  offspringGenome.m_layers = fitterParent.m_genome.m_layers;
 
   // Create the offspring Individual with a new genome and reset fitness
   Individual offspring =
       Individual(std::move(offspringGenome), m_config, m_rng);
+  offspring.topologySort();
   return offspring;
 }
 
@@ -138,8 +147,13 @@ double Individual::calculateDelta(const Individual &other) const
   double W =
       (matchingCount > 0) ? (totalWeightDifference / matchingCount) : 0.0;
 
+  double N = 1.0;
+  if (m_genome.m_neurons.size() > 30)
+    N = m_genome.m_neurons.size() > other.m_genome.m_neurons.size()
+            ? m_genome.m_neurons.size()
+            : other.m_genome.m_neurons.size();
   // Calculate delta using the formula
-  double delta = (excessCount * c1) + (disjointCount * c2) + (W * c3);
+  double delta = (excessCount * c1) / N + (disjointCount * c2) / N + (W * c3);
 
   return delta;
 }
@@ -197,7 +211,7 @@ void Individual::mutateAddLink()
 
   // check if new link isn't connecting inputs nor connecting outputs
   // HACK: This is hardcoded for the problem. Fix later
-  if (inputId < 0 && outputId < 0)
+  if ((inputId < 0 && outputId < 0) || (inputId > 0 && outputId < 0))
     return;
 
   // check if there is already a disabled link

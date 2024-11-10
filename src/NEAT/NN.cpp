@@ -39,12 +39,12 @@ const std::vector<double> Genome::run(const std::vector<double> &inputs,
           [&](const NodeGene &n) { return n.m_neuron_id == link.m_InNodeId; });
 
       // FIX: by commenting this, it means we can guarantee no dangling nodes
-      // links if (nodeIt == m_neurons.end()) {
-      //   PLOG_T("nodeIt->m_neuron_id = {}", nodeIt->m_neuron_id);
-      //   PLOG_T("nodeIt->m_bias = {}", nodeIt->m_bias);
-      //   ASSERT(nodeIt != m_neurons.end(),
-      //          "NodeId = {} wasn't found inside m_neurons", link.m_InNodeId);
-      // }
+      if (nodeIt == m_neurons.end()) {
+        PLOG_T("nodeIt->m_neuron_id = {}", nodeIt->m_neuron_id);
+        PLOG_T("nodeIt->m_bias = {}", nodeIt->m_bias);
+        ASSERT(nodeIt != m_neurons.end(),
+               "NodeId = {} wasn't found inside m_neurons", link.m_InNodeId);
+      }
       inputNode.outputValue =
           nodeIt->m_activationFunction.function(inputNode.outputValue);
       inputNode.activationFunctionApplied = true;
@@ -216,7 +216,7 @@ void Genome::addNode(ConnectionGene &oldConnGene, int numInputs, int numOutputs)
   if (oldConnGeneIt != m_links.end()) {
     m_links.insert(oldConnGeneIt, {weight1, weightOld});
   }
-  // HACK: this should be necessary but idk
+  // HACK: this should not be necessary but idk
   topologySortNN(numInputs);
 }
 

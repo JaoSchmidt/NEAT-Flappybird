@@ -60,6 +60,7 @@ public:
                        std::vector<InnovationStatic> &populationInnovs) const;
   // Delta Formula δ
   double calculateDelta(const Individual &other) const;
+  inline void topologySort() { m_genome.topologySortNN(m_config.m_numInputs); };
 
   Individual clone() const
   {
@@ -86,6 +87,4 @@ private:
   const NeatConfig &m_config;
   const pain::RNG &m_rng;
   Genome m_genome;
-  // delta formula:
-  double m_dN = 1.0;
 };

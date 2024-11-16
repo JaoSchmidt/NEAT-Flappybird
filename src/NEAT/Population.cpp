@@ -41,7 +41,7 @@ void Population::onCreate()
 
   pain::Application::Get().addImGuiInstance((ImGuiInstance *)this);
   // pain::Application::Get().disableRendering();
-  *(pain::Application::Get().getTimeMultiplier()) = 0.1;
+  *(pain::Application::Get().getTimeMultiplier()) = 5.0;
 
   // ============================================================ //
   m_points = 0;
@@ -143,14 +143,14 @@ void Population::onUpdate(double deltaTime)
     }
   }
 
-  // calculate space pressed probability
   const glm::vec3 obsPos = m_obstacles[m_currentObsIndex]
                                .getComponent<pain::TransformComponent>()
                                .m_position;
 
-  if (obsPos.x < DEFAULTXPOS)
-    m_currentObsIndex = getClosestObstacle(DEFAULTXPOS);
+  // if (obsPos.x < DEFAULTXPOS)
+  //   m_currentObsIndex = getClosestObstacle(DEFAULTXPOS);
 
+  // calculate space pressed probability
   if (m_individuals[m_currentIndIndex].fit(
           {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot})) {
     // SDL_PushEvent not working

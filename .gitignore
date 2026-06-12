@@ -1,0 +1,57 @@
+notify_wrapper.sh
+build
+remote-build
+PASSWORD
+outsite-build.sh
+build-ci
+config.ini
+imgui.ini
+resources/default
+resources/scripts/lua_types
+resources/scripts/.luarc.json
+resources/internalConfig.ini
+.editorconfig
+.ignore
+.cache
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# debug information files
+*.dwo

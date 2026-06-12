@@ -9,8 +9,7 @@ struct NodeInput {
 };
 
 const std::vector<double> Genome::run(const std::vector<double> &inputs,
-                                      int numInputs, int numOutputs) const
-{
+                                      int numInputs, int numOutputs) const {
   std::unordered_map<int, NodeInput> nodeOutputs;
   nodeOutputs.reserve(m_links.size());
 
@@ -75,8 +74,7 @@ const std::vector<double> Genome::run(const std::vector<double> &inputs,
   return outputs;
 }
 
-int Genome::loadInnovation(int inputNodeId, int outputNodeId)
-{
+int Genome::loadInnovation(int inputNodeId, int outputNodeId) {
   int innov = -1;
   auto it = std::find_if(m_globalInnovations.begin(), m_globalInnovations.end(),
                          [&](const InnovationStatic &innov) {
@@ -95,8 +93,7 @@ int Genome::loadInnovation(int inputNodeId, int outputNodeId)
   return innov;
 }
 
-void Genome::addConnectionAndSort(ConnectionGene connGene, int numInputs)
-{
+void Genome::addConnectionAndSort(ConnectionGene connGene, int numInputs) {
   // check if there is a cycle
   if (hasPathDFS(connGene.m_OutNodeId, connGene.m_InNodeId)) {
     return;
@@ -107,8 +104,7 @@ void Genome::addConnectionAndSort(ConnectionGene connGene, int numInputs)
   topologySortNN(numInputs);
 }
 
-void Genome::topologySortNN(int numInputs)
-{
+void Genome::topologySortNN(int numInputs) {
   std::vector<int> sortedNodes;
   std::unordered_map<int, int> inDegree;
 
@@ -153,8 +149,7 @@ void Genome::topologySortNN(int numInputs)
             });
 }
 
-bool Genome::hasPathDFS(int startNode, int targetNode) const
-{
+bool Genome::hasPathDFS(int startNode, int targetNode) const {
   // Use depth first search to check if there is a path from target to start
   std::unordered_set<int> visited;
   std::vector<int> stack = {targetNode};
@@ -183,8 +178,8 @@ bool Genome::hasPathDFS(int startNode, int targetNode) const
   return false; // No path found, safe to add link
 }
 
-void Genome::addNode(ConnectionGene &oldConnGene, int numInputs, int numOutputs)
-{
+void Genome::addNode(ConnectionGene &oldConnGene, int numInputs,
+                     int numOutputs) {
   // Disable the original connection
   oldConnGene.m_enable = false;
 
@@ -220,8 +215,7 @@ void Genome::addNode(ConnectionGene &oldConnGene, int numInputs, int numOutputs)
   topologySortNN(numInputs);
 }
 
-const bool Genome::willIsolateInNode(const ConnectionGene &link) const
-{
+bool Genome::willIsolateInNode(const ConnectionGene &link) const {
   // Lambda function to check if a node has outgoing connections
   const auto hasOutputs = [&](int nodeId) {
     return std::any_of(
@@ -237,8 +231,7 @@ const bool Genome::willIsolateInNode(const ConnectionGene &link) const
   const bool willIsolateInNode = !hasOutputs(link.m_InNodeId);
   return willIsolateInNode;
 }
-const bool Genome::willIsolateOutNode(const ConnectionGene &link) const
-{
+bool Genome::willIsolateOutNode(const ConnectionGene &link) const {
   // Lambda function to check if a node has incoming connections
   const auto hasInputs = [&](int nodeId) {
     return std::any_of(
@@ -255,8 +248,7 @@ const bool Genome::willIsolateOutNode(const ConnectionGene &link) const
   return willIsolateOutNode;
 }
 
-void Genome::removeConnection(ConnectionGene &link, int numInputs)
-{
+void Genome::removeConnection(ConnectionGene &link, int numInputs) {
   if (willIsolateInNode(link) || willIsolateOutNode(link))
     return;
   // Find and remove the specified link
@@ -270,8 +262,7 @@ void Genome::removeConnection(ConnectionGene &link, int numInputs)
   topologySortNN(numInputs);
 }
 
-void Genome::removeNode(NodeGene &nodeGene, int numInputs)
-{
+void Genome::removeNode(NodeGene &nodeGene, int numInputs) {
   // Check if the node is an input or output
   if (nodeGene.m_neuron_id < 0)
     return;

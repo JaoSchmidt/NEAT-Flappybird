@@ -1,18 +1,22 @@
 #pragma once
 
 #include <pain.h>
+#include <painless.h>
 #define DEFAULTXPOS -0.8f
 
-class PlayerController : public pain::ScriptableEntity,
-                         public pain::ImGuiInstance
-{
-public:
-  void onCreate();
-  void onUpdate(double deltaTimeSec);
-  void onRender(double currentTime);
-  const void onImGuiUpdate() override;
+reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
+                         painless::CustomEditor &customEditor);
 
-  const void resetPosition();
+struct PlayerController : public pain::WorldObject {
+public:
+  PlayerController(reg::Entity entity, pain::Scene &scene,
+                   painless::CustomEditor &ce);
+  void onCreate();
+  void onUpdate(pain::DeltaTime deltaTimeSec);
+  void onRender(pain::RenderContext &renderer, bool isMinimized,
+                pain::DeltaTime currentTime);
+
+  void resetPosition();
 
   // HACK: This exists because I can figure out how push events w/SDL_PushEvent
   bool m_automaticJump = false;
@@ -25,15 +29,11 @@ private:
   float m_jumpImpulse = 5.f;
   float m_dampingFactor = 1.f;
   bool m_displayUpdates = false;
-  bool m_isRendering = false;
+  // bool m_isRendering = false;
   // particle emission
   float m_timeSinceLastEmission = 0.f;
   float m_emissionInterval = 0.f;
   // NEAT automation
-};
 
-class Player : public pain::GameObject
-{
-public:
-  Player(pain::Scene *scene, std::shared_ptr<pain::Texture> &pTexture);
+  painless::CustomEditor &m_customEditor;
 };

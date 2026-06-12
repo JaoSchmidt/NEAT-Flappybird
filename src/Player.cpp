@@ -1,28 +1,37 @@
 #include "Player.h"
-#include "ECS/Components/Particle.h"
 #include "pain.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <unistd.h>
 
-Player::Player(pain::Scene *scene, std::shared_ptr<pain::Texture> &pTexture)
-    : pain::GameObject(scene)
-{
-  addComponent<pain::TransformComponent>(glm::vec3(DEFAULTXPOS, 0.0f, 0.0f));
-  // TODO: remove m_rotationSpeed from MovementComponent
-  addComponent<pain::MovementComponent>(glm::vec3(0.f, 0.0f, 0.0f), 1.0f, 0.0f);
-  addComponent<pain::RotationComponent>(glm::vec3(0.f, 1.f, 0.f), 315.f);
-  addComponent<pain::SpriteComponent>(
-      glm::vec2(0.1f, 0.1f), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 1.0f, pTexture);
-  addComponent<pain::ParticleSprayComponent>();
+reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
+                         painless::CustomEditor &ce) {
+
+  reg::Entity entity = scene.createEntity();
+  scene.createComponents(
+      entity, pain::Transform2dComponent{glm::vec2(DEFAULTXPOS, 0.0f)},
+      pain::Movement2dComponent{glm::vec2(0.f, 0.0f), 1.0f},
+      pain::MaterialComponent::create(m),
+      pain::ParticleSprayComponent::create({
+          .interval = pain::DeltaTime::oneSecond() / 8,
+          .randAngleFactor = 20.f,
+          .autoEmit = false,
+          .capacity = 100,
+      }),
+      pain::RotationComponent{315.f, glm::vec3(0.f, 1.f, 0.f)},          //
+      pain::SpriteComponent::create({.layer = pain::RenderLayer::Closer, //
+                                     .shape = pain::RectShape{}}));      //
+  pain::Scene::emplaceScript<PlayerController>(entity, scene, ce);
+  return entity;
 };
 
-void PlayerController::onCreate()
-{
-  pain::Application::Get().addImGuiInstance((pain::ImGuiInstance *)this);
+PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene,
+                                   painless::CustomEditor &ce)
+    : pain::WorldObject(entity, scene), m_customEditor(ce) {}
 
-  pain::MovementComponent &mc = getComponent<pain::MovementComponent>();
+void PlayerController::onCreate() {
+  pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   mc.m_rotationSpeed = 0.0f;
   m_pseudoVelocityX = 1.f;
   m_gravity = -0.9f;
@@ -34,16 +43,34 @@ void PlayerController::onCreate()
   m_emissionInterval = 0.02f;
   pain::ParticleSprayComponent &psc =
       getComponent<pain::ParticleSprayComponent>();
-  psc.m_lifeTime = 0.7f;
-  psc.m_randSizeFactor = 1.f;
-  psc.m_sizeChangeSpeed = 0.15f;
+  psc.lifeTime = pain::DeltaTime::oneMilliSecond() * 700;
+  psc.randSizeFactor = 1.f;
+  psc.sizeChangeSpeed = 0.15f;
+
+  m_customEditor.addToPanel("Player Controller", 1, [this]() {
+    ImGui::Begin("Player Controller");
+    ImGui::Text("General Settings");
+    ImGui::InputFloat("Gravity", &m_gravity, 0.01f, 1.0f, "%.3f");
+    ImGui::InputFloat("Jump Impulse", &m_jumpImpulse, 0.1f, 1.0f, "%.3f");
+    ImGui::InputFloat("Damping Effect", &m_dampingFactor, 0.01f, 1.0f, "%.5f");
+    ImGui::InputFloat("Pseudo Velocity X", &m_pseudoVelocityX, 0.1f, 1.0f,
+                      "%.3f");
+    ImGui::SeparatorText("Log");
+    ImGui::Checkbox("Log Updates", &m_displayUpdates);
+    if (ImGui::Button("Reset Components"))
+      resetPosition();
+    ImGui::End();
+  });
 }
 
-void PlayerController::onRender(double currentTime)
-{
-  constexpr glm::mat3 rotate90{glm::vec3(0, -1, 0), glm::vec3(1, 0, 0),
-                               glm::vec3(0, 0, 1)};
-  const pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
+void PlayerController::onRender(pain::RenderContext &renderers,
+                                bool isMinimized, pain::DeltaTime currentTime) {
+
+  UNUSED(renderers)
+  UNUSED(isMinimized)
+  constexpr glm::mat2 rotate90{glm::vec2(0, -1), glm::vec2(1, 0)};
+  const pain::Transform2dComponent &tc =
+      getComponent<pain::Transform2dComponent>();
   const pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
 
   pain::ParticleSprayComponent &psc =
@@ -53,21 +80,30 @@ void PlayerController::onRender(double currentTime)
 
     // particles
     // Check if it's time to emit a new particle
-    psc.m_emiterPosition = rc.m_rotation + tc.m_position;
     if (m_timeSinceLastEmission >= m_emissionInterval) {
-      const float rando = (float)rand() / RAND_MAX - 0.5;
-      psc.emitParticle(currentTime,
-                       tc.m_position + (rotate90 * rc.m_rotation * 0.05f),
-                       rc.m_rotation, rando);
+
+      const float rando =
+          static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f;
+      const float randoAngle = rando * glm::radians(psc.randAngleFactor);
+      // already rotated 90 degrees btw
+      const glm::mat2 rotation =
+          glm::mat2(-sin(randoAngle), -cos(randoAngle), //
+                    cos(randoAngle), -sin(randoAngle));
+
+      pain::SprayParticle &p = psc.particles[psc.currentParticle];
+      p = {.offset = tc.m_position,
+           .normal = glm::vec2(rotate90 * rc.m_rotation * 0.05f),
+           .startTime = currentTime,
+           .alive = true};
       m_timeSinceLastEmission = 0.0f; // Reset the timer
     }
   }
 }
 
-void PlayerController::onUpdate(double deltaTimeSec)
-{
-  pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
-  pain::MovementComponent &mc = getComponent<pain::MovementComponent>();
+void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
+  double deltaTimeSec = deltaTime.getSeconds();
+  pain::Transform2dComponent &tc = getComponent<pain::Transform2dComponent>();
+  pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
 
   if (m_jumpForce > 0.f)
@@ -94,50 +130,33 @@ void PlayerController::onUpdate(double deltaTimeSec)
   }
 
   // velocity y
-  mc.m_velocityDir.y = std::clamp(
-      mc.m_velocityDir.y + acc * (float)deltaTimeSec, -m_maxVelY, m_maxVelY);
+  mc.m_velocity.y = std::clamp(mc.m_velocity.y + acc * (float)deltaTimeSec,
+                               -m_maxVelY, m_maxVelY);
   // "velocity x"
   rc.m_rotationAngle =
-      -std::numbers::pi / 2 + std::atan2(mc.m_velocityDir.y, m_pseudoVelocityX);
+      -std::numbers::pi / 2 + std::atan2(mc.m_velocity.y, m_pseudoVelocityX);
 
   if (m_displayUpdates) {
     LOG_I("---------------------------------------------");
     LOG_I("m_jumpForce {}", m_jumpForce);
     LOG_I("acc {}", acc);
-    LOG_I("mc.m_velocityDir.y {}", mc.m_velocityDir.y);
-    LOG_I("Y/X {}", mc.m_velocityDir.y / m_pseudoVelocityX);
+    LOG_I("mc.m_velocity.y {}", mc.m_velocity.y);
+    LOG_I("Y/X {}", mc.m_velocity.y / m_pseudoVelocityX);
     LOG_I("atan {}", rc.m_rotationAngle);
   }
 }
 
-const void PlayerController::resetPosition()
-{
-  pain::TransformComponent &tc = getComponent<pain::TransformComponent>();
-  pain::MovementComponent &mc = getComponent<pain::MovementComponent>();
+void PlayerController::resetPosition() {
+  pain::Transform2dComponent &tc = getComponent<pain::Transform2dComponent>();
+  pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
 
   mc.m_rotationSpeed = 0.0f;
   m_pseudoVelocityX = 1.f;
-  tc.m_position = {-0.8f, 0.f, 0.f};
-  mc.m_velocityDir = {0.f, 1.f, 0.f};
+  tc.m_position = {-0.8f, 0.f};
+  mc.m_velocity = {0.f, 1.f};
   rc.m_rotation = {0.f, 1.f, 0.f};
   rc.m_rotationAngle = 315.f;
-}
-
-const void PlayerController::onImGuiUpdate()
-{
-  // ImGui::Begin("Player Controller");
-  // ImGui::Text("General Settings");
-  // ImGui::InputFloat("Gravity", &m_gravity, 0.01f, 1.0f, "%.3f");
-  // ImGui::InputFloat("Jump Impulse", &m_jumpImpulse, 0.1f, 1.0f, "%.3f");
-  // ImGui::InputFloat("Damping Effect", &m_dampingFactor, 0.01f, 1.0f, "%.5f");
-  // ImGui::InputFloat("Pseudo Velocity X", &m_pseudoVelocityX, 0.1f, 1.0f,
-  //                   "%.3f");
-  // ImGui::SeparatorText("Log");
-  // ImGui::Checkbox("Log Updates", &m_displayUpdates);
-  // if (ImGui::Button("Reset Components"))
-  //   resetPosition();
-  // ImGui::End();
 }
 
 // void PlayerController::onDestroy() { delete m_pIG; }

@@ -1,23 +1,26 @@
 #pragma once
 #include <pain.h>
+#include <painless.h>
 
-#include "ImGuiController.h"
 #include "Obstacles.h"
 #include "Player.h"
 
-class Game : public pain::Scene, public pain::ImGuiInstance
-{
+class Game : public pain::WorldObject {
 public:
-  void onCreate();
-  void onRender(double currenTime);
-  void onUpdate(double deltaTime);
-  const void onImGuiUpdate();
-  void onEvent(const SDL_Event &event);
+  reg::Entity static create(pain::Scene &scene, pain::Application &app,
+                            painless::CustomEditor &editor);
 
-private:
+  void onCreate();
+  void onUpdate(pain::DeltaTime deltaTime);
+
+  Game(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
+       pain::Material *om, std::vector<ObstaclesController *> &&obc,
+       painless::CustomEditor &e, pain::Application &a);
+
+protected:
   bool m_rendering = true;
   // parameters
-  int m_numberOfObstacles = 20;
+  constexpr static int s_numberOfObstacles = 20;
   float m_obstaclesSpacing = 0.35f;
   float m_obstaclesInterval = 1.6;
   float m_intervalTime = 0.6;
@@ -33,15 +36,25 @@ private:
   int m_points = 0;
   int m_loses = 0;
 
-  std::shared_ptr<ImGuiController> m_shapeController;
-  std::unique_ptr<Player> m_pplayer;
+  PlayerController *m_playerController;
 
-  std::vector<Obstacles> m_obstacles = {};
+  std::vector<ObstaclesController *> m_obstacles = {};
+  pain::Material *m_obstaclesMaterial;
+
+  painless::CustomEditor m_customEditor;
+
+  pain::Application &m_app;
+
+  void changeObstaclesColors(pain::Color color);
   void reviveObstacle(int index, float random, bool upsideDown);
-  bool checkIntersection(const Player &player, const Obstacles &obstacle,
-                         int index);
+  bool checkIntersection(const ObstaclesController &obstacle);
   void afterLosing();
   void clearObstacles();
+  std::tuple<PlayerController *, pain::Material *,
+             std::vector<ObstaclesController *>
+                 &&> static createHelper(pain::Scene &scene,
+                                         pain::Application &,
+                                         painless::CustomEditor &);
 
   template <std::size_t T>
   glm::vec2 projection(const std::array<glm::vec2, T> &shape,

@@ -2,38 +2,26 @@
 #include <pain.h>
 
 #include "Core.h"
-#include "Player.h"
 
-class ObstaclesController : public pain::ScriptableEntity
-{
+class ObstaclesController : public pain::WorldObject {
 public:
-  void onUpdate(double deltaTime);
+  reg::Entity static create(pain::Scene &scene, pain::Material &m);
+  void onUpdate(pain::DeltaTime deltaTime);
   void revive(bool upsideDown, bool movable);
-  const void onImGuiUpdate();
   void setObstaclesSpeed();
   void revive(float obstacleSpeed, float height, bool upsideDown, int *points);
-  void changeColor(glm::vec3 color);
   int *m_points = nullptr;
 
-  ObstaclesController() = default;
   ~ObstaclesController() = default;
-  MOVABLES(ObstaclesController)
-  NONCOPYABLE(ObstaclesController)
+  ObstaclesController(const ObstaclesController &) = delete;
+  ObstaclesController &operator=(const ObstaclesController &) = delete;
+  ObstaclesController(ObstaclesController &&) = default;
+  ObstaclesController &operator=(ObstaclesController &&) = default;
+
 private:
   bool m_isAlive = true;
   bool m_isUpsideDown = false;
   bool m_isMovable = true;
   bool m_canCountPoints = true;
   double m_deactivateTimout = 0.0f;
-};
-
-class Obstacles : public pain::GameObject
-{
-public:
-  Obstacles(pain::Scene *scene);
-  ~Obstacles() = default;
-  // Obstacles &operator=(const Obstacles &o) { return *this; }
-  // Obstacles(const Obstacles &o, pain::Scene *scene) : GameObject(scene) {}
-  MOVABLES(Obstacles)
-  NONCOPYABLE(Obstacles)
 };

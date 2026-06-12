@@ -1,49 +1,26 @@
 #include "NEAT/Population.h"
-#include "CoreFiles/Application.h"
 #include "CoreFiles/LogWrapper.h"
-#include "ECS/Components/Movement.h"
-#include "SDL_events.h"
-#include "pain.h"
-#include <algorithm>
-#include <iostream>
+#include <pain.h>
 #include <utility>
 #include <vector>
 
-void Population::onRender(double currentTime) {}
-void Population::onEvent(const SDL_Event &event) {}
+reg::Entity Population::create(pain::Scene &scene, pain::Application &app,
+                               painless::CustomEditor &ce) {
+  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app, ce);
+  reg::Entity game = scene.createEntity();
+  scene.createComponents(game, pain::NativeScriptComponent{});
+  pain::Scene::emplaceScript<Population>(game, scene, pc, obstacleMaterial,
+                                         std::move(obstacles), ce, app);
+  return game;
+}
 
-void Population::onCreate()
-{
-  const int w = 1024;
-  const int h = 768;
-  std::shared_ptr<pain::OrthoCameraEntity> camera =
-      std::make_shared<pain::OrthoCameraEntity>(this, (float)w / h, 1.0f);
-  pain::Renderer2d::init(camera);
-  camera->addComponent<pain::NativeScriptComponent>()
-      .bind<pain::OrthoCameraController>();
+Population::Population(reg::Entity entity, pain::Scene &scene,
+                       PlayerController *pc, pain::Material *om,
+                       std::vector<ObstaclesController *> &&obc,
+                       painless::CustomEditor &e, pain::Application &a)
+    : Game(entity, scene, pc, om, std::move(obc), e, a), worldScene(scene) {};
 
-  auto texture =
-      std::make_shared<pain::Texture>("resources/textures/Player.png");
-  m_pplayer = std::make_unique<Player>(this, texture);
-  pain::NativeScriptComponent &pNSC =
-      m_pplayer->addComponent<pain::NativeScriptComponent>();
-  pNSC.bind<PlayerController>();
-  initializeScripts(pNSC, *m_pplayer);
-
-  m_obstacles.reserve(m_numberOfObstacles);
-  for (char i = 0; i < m_numberOfObstacles; i++) {
-    m_obstacles.emplace_back(this);
-    pain::NativeScriptComponent &oNSC =
-        m_obstacles[i].addComponent<pain::NativeScriptComponent>();
-    oNSC.bind<ObstaclesController>();
-    initializeScripts(oNSC, m_obstacles[i]);
-  };
-
-  pain::Application::Get().addImGuiInstance((ImGuiInstance *)this);
-  // pain::Application::Get().disableRendering();
-  *(pain::Application::Get().getTimeMultiplier()) = 5.0;
-
-  // ============================================================ //
+void Population::onCreate() {
   m_points = 0;
 
   m_config.m_generation = 0;
@@ -82,25 +59,24 @@ void Population::onCreate()
 
   m_currentObsIndex = m_index;
 
-  pain::TransformComponent &ptc =
-      m_pplayer->getComponent<pain::TransformComponent>();
-  pain::MovementComponent &pmc =
-      m_pplayer->getComponent<pain::MovementComponent>();
+  pain::Transform2dComponent &ptc =
+      m_playerController->getComponent<pain::Transform2dComponent>();
+  pain::Movement2dComponent &pmc =
+      m_playerController->getComponent<pain::Movement2dComponent>();
   pain::RotationComponent &prc =
-      m_pplayer->getComponent<pain::RotationComponent>();
+      m_playerController->getComponent<pain::RotationComponent>();
 
   m_playerY = &ptc.m_position.y;
-  m_playerVy = &pmc.m_velocityDir.y;
+  m_playerVy = &pmc.m_velocity.y;
   m_playerRot = &prc.m_rotationAngle;
 }
 
 // ** get index of the closest obstacle to the left of the player
-int Population::getClosestObstacle(float playerPos)
-{
+int Population::getClosestObstacle(float playerPos) {
   for (unsigned i = 0; i < m_obstacles.size(); i++) {
     int index = (m_currentObsIndex + i) % m_obstacles.size();
     float &obstaclePosX = m_obstacles[index]
-                              .getComponent<pain::TransformComponent>()
+                              ->getComponent<pain::Transform2dComponent>()
                               .m_position.x;
     if (obstaclePosX > playerPos && obstaclePosX < 0.08) {
       return index;
@@ -109,18 +85,18 @@ int Population::getClosestObstacle(float playerPos)
   return m_currentObsIndex;
 }
 
-void Population::onUpdate(double deltaTime)
-{
+void Population::onUpdate(pain::DeltaTime deltaTime) {
   // spawn obstacles
-  m_obstaclesInterval -= m_intervalTime * deltaTime;
+  m_obstaclesInterval -= m_intervalTime * deltaTime.getSeconds();
   if (m_obstaclesInterval <= 0) {
     m_obstaclesInterval = m_maxInterval;
-    const float randAngle = ((float)rand() / RAND_MAX) * M_PI * 2;
+    const float randAngle =
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * M_PI * 2;
 
     reviveObstacle(m_index, randAngle, true);
-    m_index = (m_index + 1) % m_numberOfObstacles;
+    m_index = (m_index + 1) % s_numberOfObstacles;
     reviveObstacle(m_index, randAngle, false);
-    m_index = (m_index + 1) % m_numberOfObstacles;
+    m_index = (m_index + 1) % s_numberOfObstacles;
   }
   // check if m_points changed
   if (m_points > m_pointsChecker) {
@@ -129,22 +105,23 @@ void Population::onUpdate(double deltaTime)
   }
 
   // check collision and losing state
-  for (char i = 0; i < m_numberOfObstacles; i++) {
-    Obstacles &obstacle = m_obstacles.at(i);
-    const auto &tc = obstacle.getComponent<pain::TransformComponent>();
+  for (char i = 0; i < s_numberOfObstacles; i++) {
+    ObstaclesController &obstacle = *m_obstacles.at(i);
+    const auto &tc = obstacle.getComponent<pain::Transform2dComponent>();
     // no extra life for now
-    if (tc.m_position.x < -0.2f && checkIntersection(*m_pplayer, obstacle, i)) {
+    if (tc.m_position.x < -0.2f && checkIntersection(obstacle)) {
       afterLosing();
       return;
     }
     if (m_points > 300) {
-      *(pain::Application::Get().getTimeMultiplier()) = 1.0;
-      pain::Application::Get().enableRendering();
+      PLOG_E("time multiplier requested still WIP");
+      // *(pain::Application::Get().getTimeMultiplier()) = 1.0;
+      // pain::Application::Get().enableRendering();
     }
   }
 
-  const glm::vec3 obsPos = m_obstacles[m_currentObsIndex]
-                               .getComponent<pain::TransformComponent>()
+  const glm::vec2 obsPos = m_obstacles[m_currentObsIndex]
+                               ->getComponent<pain::Transform2dComponent>()
                                .m_position;
 
   // if (obsPos.x < DEFAULTXPOS)
@@ -154,18 +131,13 @@ void Population::onUpdate(double deltaTime)
   if (m_individuals[m_currentIndIndex].fit(
           {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot})) {
     // SDL_PushEvent not working
-    ((PlayerController *)m_pplayer->getComponent<pain::NativeScriptComponent>()
-         .instance)
-        ->m_automaticJump = true;
+    m_playerController->m_automaticJump = true;
   } else {
-    ((PlayerController *)m_pplayer->getComponent<pain::NativeScriptComponent>()
-         .instance)
-        ->m_automaticJump = false;
+    m_playerController->m_automaticJump = false;
   }
 }
 
-void Population::afterLosing()
-{
+void Population::afterLosing() {
   // update fitness
   m_individuals[m_currentIndIndex].m_fitness = m_points;
   // LOG_I("Individual {}, Pontuation = {}", m_currentIndIndex, m_points);
@@ -175,24 +147,10 @@ void Population::afterLosing()
     m_currentIndIndex = (m_currentIndIndex + 1) % m_config.m_populationSize;
   }
   m_loses++;
-  m_points = 0;
-  // reset Player position
-  ((PlayerController *)m_pplayer->getComponent<pain::NativeScriptComponent>()
-       .instance)
-      ->resetPosition();
-  // clear obstacles
-  for (char i = 0; i < m_numberOfObstacles; i++) {
-    Obstacles &obstacle = m_obstacles.at(i);
-    auto *inst = (ObstaclesController *)obstacle
-                     .getComponent<pain::NativeScriptComponent>()
-                     .instance;
-    inst->revive(0, 0, false, &m_points);
-  }
-  m_currentObsIndex = m_index;
+  Game::afterLosing();
 }
 
-void Population::speciateFitness()
-{
+void Population::speciateFitness() {
   LOG_I("RepSize = {}, IndSize = {}", m_speciesRepresentatives.size(),
         m_individuals.size());
   std::vector<int> speciesCount(m_speciesRepresentatives.size(), 0);
@@ -222,8 +180,7 @@ void Population::speciateFitness()
   }
 }
 
-void Population::classifyAllSpecies()
-{
+void Population::classifyAllSpecies() {
 
   for (auto &individual : m_individuals) {
     bool foundSpecies = false;
@@ -255,8 +212,7 @@ void Population::classifyAllSpecies()
 }
 
 std::vector<Individual>
-Population::tournamentSelection(int numToSurvive, int tournamentSize) const
-{
+Population::tournamentSelection(int numToSurvive, int tournamentSize) const {
   std::vector<Individual> selectedIndividuals;
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -281,8 +237,8 @@ Population::tournamentSelection(int numToSurvive, int tournamentSize) const
   return selectedIndividuals;
 }
 
-void Population::offspringAndMutate(std::vector<Individual> selectedIndividuals)
-{
+void Population::offspringAndMutate(
+    std::vector<Individual> selectedIndividuals) {
   std::vector<Individual> offspring;
   offspring.reserve(m_config.m_populationSize - selectedIndividuals.size());
 
@@ -320,8 +276,7 @@ void Population::offspringAndMutate(std::vector<Individual> selectedIndividuals)
                        std::make_move_iterator(offspring.end()));
 }
 
-void Population::updateGeneration()
-{
+void Population::updateGeneration() {
   // speciation
   classifyAllSpecies();
   speciateFitness();
@@ -343,8 +298,7 @@ void Population::updateGeneration()
   offspringAndMutate(std::move(selection));
 }
 
-Genome Population::createMinimalGenome(int individualIndex)
-{
+Genome Population::createMinimalGenome(int individualIndex) {
   std::vector<NodeGene> neurons = {};
   int outputId = -6;
 
@@ -365,147 +319,50 @@ Genome Population::createMinimalGenome(int individualIndex)
     if (individualIndex == 0) // excpected to work once
       m_populationInnov.emplace_back(-id, outputId, id - 1);
   }
-  // layers
-  std::vector<int> layers = {0, 1};
 
-  return Genome(std::move(neurons), std::move(links), std::move(layers),
-                m_populationInnov);
+  return Genome(std::move(neurons), std::move(links), m_populationInnov);
 }
 
-void Population::reviveObstacle(int index, float randomAngle, bool upsideDown)
-{
-  const float height = upsideDown
-                           ? sin(randomAngle) * 0.7 + 0.75f + m_obstaclesSpacing
-                           : sin(randomAngle) * 0.7 - 1.25f;
-  ((ObstaclesController *)m_obstacles.at(index)
-       .getComponent<pain::NativeScriptComponent>()
-       .instance)
-      ->revive(m_defaultObstacleSpeed, height, upsideDown, &m_points);
-}
-
-bool Population::checkIntersection(const Player &player,
-                                   const Obstacles &obstacle, int index)
-{
-  auto &ptc = player.getComponent<pain::TransformComponent>();
-  auto &prc = player.getComponent<pain::RotationComponent>();
-  auto &psc = player.getComponent<pain::SpriteComponent>();
-  auto &otc = obstacle.getComponent<pain::TransformComponent>();
-  auto &otgc = obstacle.getComponent<pain::TrianguleComponent>();
-
-  // get quad vertices
-  constexpr glm::vec4 quadVertexPositions[4] = {
-      glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
-      glm::vec4(0.5f, -0.5f, 0.f, 1.f),
-      glm::vec4(0.5f, 0.5f, 0.f, 1.f),
-      glm::vec4(-0.5f, 0.5f, 0.f, 1.f),
-  };
-  const glm::mat4 transform = pain::Renderer2d::getTransform(
-      ptc.m_position, psc.m_size, prc.m_rotationAngle);
-
-  std::array<glm::vec2, 4> qVertices = {
-      transform * quadVertexPositions[0],
-      transform * quadVertexPositions[1],
-      transform * quadVertexPositions[2],
-      transform * quadVertexPositions[3],
-  };
-
-  // triangle
-  constexpr glm::vec4 triVertexPositions[3] = {
-      glm::vec4(0.0f, 0.5f, 0.f, 1.f),
-      glm::vec4(0.5f, -0.5f, 0.f, 1.f),
-      glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
-  };
-  const glm::mat4 transformTri =
-      pain::Renderer2d::getTransform(otc.m_position, otgc.m_height);
-  const std::array<glm::vec2, 3> tVertices = {
-      transformTri * triVertexPositions[0], //
-      transformTri * triVertexPositions[1], //
-      transformTri * triVertexPositions[2], //
-  };
-
-  std::vector<glm::vec2> axes;
-  for (size_t i = 0; i < 4; i++) {
-    glm::vec2 edge = qVertices[(i + 1) % 4] - qVertices[i];
-    glm::vec2 axis(-edge.y, edge.x); // Perpendicular to the edge
-    axis = glm::normalize(axis);
-    axes.push_back(axis);
-  }
-  for (size_t i = 0; i < 3; i++) {
-    glm::vec2 edge = tVertices[(i + 1) % 3] - tVertices[i];
-    glm::vec2 axis(-edge.y, edge.x);
-    axis = glm::normalize(axis);
-    axes.push_back(axis);
-  }
-  // Perform SAT check on all axes
-  for (const glm::vec2 &axis : axes) {
-    auto boundA = projection(qVertices, axis);
-    auto boundB = projection(tVertices, axis);
-
-    // Check for overlap
-    if (boundA.y < boundB.x || boundB.y < boundA.x) {
-      return false; // No collision
-    }
-  }
-
-  return true;
-}
-
-template <std::size_t T>
-glm::vec2 Population::projection(const std::array<glm::vec2, T> &shape,
-                                 const glm::vec2 &axis)
-{
-  float min = glm::dot(shape[0], axis);
-  float max = min;
-  for (size_t i = 1; i < shape.size(); i++) {
-    float projection = glm::dot(shape[i], axis);
-    min = std::min(min, projection);
-    max = std::max(max, projection);
-  }
-  return {min, max};
-}
-
-const void Population::onImGuiUpdate()
-{
-  ImGui::Begin("Player Controller");
-  ImGui::Text("Parameters Settings");
-  ImGui::InputInt("Number of Obstacles", &m_numberOfObstacles);
-  ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
-                    "%.3f");
-  ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
-  ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
-  ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01f, 1.0f,
-                    "%.3f");
-  ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1f, 1.0f, "%.3f");
-  ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1f, 1.0f, "%.3f");
-  ImGui::SeparatorText("Info");
-  ImGui::Text("Obstacle Spawn counter: %.2f seconds", m_obstaclesInterval);
-  ImGui::Text("Last Obstacle index: %.2d", m_index);
-  ImGui::Text("Points: %.4d", m_points);
-  ImGui::Text("Loses: %.4d", m_loses);
-  ImGui::Text("TPS: %.1f", pain::Application::Get().getCurrentTPS());
-  ImGui::Text("Current closest Index %d", m_currentObsIndex);
-  ImGui::InputDouble("Time Multiplier",
-                     pain::Application::Get().getTimeMultiplier(), 100.0, 1.0,
-                     "%.3f");
-  if (*pain::Application::Get().getTimeMultiplier() < 0)
-    *pain::Application::Get().getTimeMultiplier() = 1.0;
-  if (ImGui::Button("Toogle Rendering")) {
-    m_rendering = !m_rendering;
-    if (m_rendering)
-      pain::Application::Get().disableRendering();
-    else
-      pain::Application::Get().enableRendering();
-  }
-  if (ImGui::Button("Toogle auto time multiplier")) {
-    bool *a = pain::Application::Get().getIsSimulation();
-    *a = !(*a);
-  }
-  ImGui::Text("Auto Multiplier is %s",
-              pain::Application::Get().getIsSimulation() ? "ON" : "OFF");
-  ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
-  if (ImGui::Button("Toogle NEAT")) {
-    m_toggleNEAT = !m_toggleNEAT;
-  }
-  ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
-  ImGui::End();
-}
+// const void Population::onImGuiUpdate() {
+//   ImGui::Begin("Player Controller");
+//   ImGui::Text("Parameters Settings");
+//   ImGui::InputInt("Number of Obstacles", &m_numberOfObstacles);
+//   ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
+//                     "%.3f");
+//   ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
+//   ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
+//   ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01f, 1.0f,
+//                     "%.3f");
+//   ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1f, 1.0f, "%.3f");
+//   ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1f, 1.0f,
+//   "%.3f"); ImGui::SeparatorText("Info"); ImGui::Text("Obstacle Spawn counter:
+//   %.2f seconds", m_obstaclesInterval); ImGui::Text("Last Obstacle index:
+//   %.2d", m_index); ImGui::Text("Points: %.4d", m_points); ImGui::Text("Loses:
+//   %.4d", m_loses); ImGui::Text("TPS: %.1f",
+//   pain::Application::Get().getCurrentTPS()); ImGui::Text("Current closest
+//   Index %d", m_currentObsIndex); ImGui::InputDouble("Time Multiplier",
+//                      pain::Application::Get().getTimeMultiplier(),
+//                      100.0, 1.0,
+//                      "%.3f");
+//   if (*pain::Application::Get().getTimeMultiplier() < 0)
+//     *pain::Application::Get().getTimeMultiplier() = 1.0;
+//   if (ImGui::Button("Toogle Rendering")) {
+//     m_rendering = !m_rendering;
+//     if (m_rendering)
+//       pain::Application::Get().disableRendering();
+//     else
+//       pain::Application::Get().enableRendering();
+//   }
+//   if (ImGui::Button("Toogle auto time multiplier")) {
+//     bool *a = pain::Application::Get().getIsSimulation();
+//     *a = !(*a);
+//   }
+//   ImGui::Text("Auto Multiplier is %s",
+//               pain::Application::Get().getIsSimulation() ? "ON" : "OFF");
+//   ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
+//   if (ImGui::Button("Toogle NEAT")) {
+//     m_toggleNEAT = !m_toggleNEAT;
+//   }
+//   ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
+//   ImGui::End();
+// }

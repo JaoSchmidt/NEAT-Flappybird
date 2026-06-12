@@ -1,8 +1,7 @@
 #pragma once
+#include "Game.h"
 #include "NEAT/Individuals.h"
 #include "NEAT/NN.h"
-#include "Obstacles.h"
-#include "Player.h"
 #include <vector>
 
 struct SpeciesFit {
@@ -10,17 +9,20 @@ struct SpeciesFit {
   double avereageFitness = 0.0;
 };
 
-class Population : public pain::Scene, public pain::ImGuiInstance
-{
+class Population : public Game {
 
 public:
+  reg::Entity static create(pain::Scene &scene, pain::Application &app,
+                            painless::CustomEditor &editor);
   void onCreate();
-  void onRender(double currenTime);
-  void onUpdate(double deltaTime);
-  void onEvent(const SDL_Event &event);
-  const void onImGuiUpdate();
+  void onUpdate(pain::DeltaTime deltaTime);
 
-private:
+  Population(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
+             pain::Material *om, std::vector<ObstaclesController *> &&obc,
+             painless::CustomEditor &e, pain::Application &a);
+
+protected:
+  pain::Scene &worldScene; // To mess with time multipliers
   // forced delta time equal 1/60
   static constexpr double m_deltaTime = static_cast<double>(1) / 60;
   bool m_rendering = true;
@@ -51,40 +53,10 @@ private:
   int m_currentIndIndex = 0;
   int getClosestObstacle(float playerPosX);
 
-  // Game/Train Options
-  int m_numberOfObstacles = 20;
-  float m_obstaclesSpacing = 0.35f;
-  float m_obstaclesInterval = 1.6;
-  float m_intervalTime = 0.6;
-  float m_maxInterval = 1.6;
-  float m_defaultObstacleSpeed = -0.32;
-  float m_colorInterval = 20.;  // color waves
-  float m_heightInterval = 20.; // height waves
-
-  float m_waveColor = 90.;
-  float m_waveHeight = 90.;
-  bool m_isRunning = true;
-  int m_index = 0;
-  int m_points = 0;
-  int m_loses = 0;
-
-  // Other game related content
-  std::unique_ptr<Player> m_pplayer;
-
-  std::vector<Obstacles> m_obstacles = {};
-  void reviveObstacle(int index, float random, bool upsideDown);
-  bool checkIntersection(const Player &player, const Obstacles &obstacle,
-                         int index);
   void afterLosing();
-  void clearObstacles();
-
-  template <std::size_t T>
-  glm::vec2 projection(const std::array<glm::vec2, T> &shape,
-                       const glm::vec2 &axis);
 
 public:
-  ~Population()
-  {
+  ~Population() {
     delete m_playerY;
     delete m_playerVy;
     delete m_playerRot;

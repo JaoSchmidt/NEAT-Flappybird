@@ -6,9 +6,7 @@ struct ActivationFunction {
 
   // Default constructor sets sigmoid as the default function
   ActivationFunction()
-      : function([](double x) { return 1.0 / (1.0 + std::exp(-4.9 * x)); })
-  {
-  }
+      : function([](double x) { return 1.0 / (1.0 + std::exp(-4.9 * x)); }) {}
   // Overload operator() to call the function directly
-  const double operator()(double input) const { return function(input); }
+  double operator()(double input) const { return function(input); }
 };

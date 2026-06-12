@@ -1,42 +1,104 @@
 #include "Game.h"
+#include "Assets/ManagerTexture.h"
 #include <cstdlib>
 
-void Game::onRender(double currentTime) {}
-void Game::onEvent(const SDL_Event &event) {}
-
-void Game::onCreate()
-{
+std::tuple<PlayerController *, pain::Material *,
+           std::vector<ObstaclesController *> &&>
+Game::createHelper(pain::Scene &scene, pain::Application &app,
+                   painless::CustomEditor &editor) {
   const int w = 1024;
   const int h = 768;
-  std::shared_ptr<pain::OrthoCameraEntity> camera =
-      std::make_shared<pain::OrthoCameraEntity>(this, (float)w / h, 1.0f);
-  pain::Renderer2d::init(camera);
-  camera->addComponent<pain::NativeScriptComponent>()
-      .bind<pain::OrthoCameraController>();
 
-  auto texture =
-      std::make_shared<pain::Texture>("resources/textures/Player.png");
-  m_pplayer = std::make_unique<Player>(this, texture);
-  pain::NativeScriptComponent &pNSC =
-      m_pplayer->addComponent<pain::NativeScriptComponent>();
-  pNSC.bind<PlayerController>();
-  initializeScripts(pNSC, *m_pplayer);
+  pain::Dummy2dCamera::createBasicCamera(scene, w, h, 1.f);
+  pain::Renderers &renderers = app.getRenderers();
+  pain::Shader &defaultShader = renderers.m_materialManager.getDefaultShader(
+      pain::DefaultShader::Texture);
 
-  m_obstacles.reserve(m_numberOfObstacles);
-  for (char i = 0; i < m_numberOfObstacles; i++) {
-    m_obstacles.emplace_back(this);
-    pain::NativeScriptComponent &oNSC =
-        m_obstacles[i].addComponent<pain::NativeScriptComponent>();
-    oNSC.bind<ObstaclesController>();
-    initializeScripts(oNSC, m_obstacles[i]);
+  pain::Texture &playerTexture =
+      pain::TextureManager::createTexture("resources/textures/Player.png");
+
+  pain::Material playerMaterial = renderers.m_materialManager.createMaterial(
+      "Player mat", pain::MaterialCreationInfo{
+                        .color = pain::Colors::FullWhite,
+                        .params = pain::ParamSimplest{},
+                        .shader = defaultShader,
+                        .texture = playerTexture,
+                    });
+
+  pain::Material *obstacleMaterial =
+      &renderers.m_materialManager.createMaterial(
+          "Obstacle", pain::MaterialCreationInfo{
+                          .color = pain::Colors::FullWhite,
+                          .params = pain::ParamSimplest{},
+                          .shader = defaultShader,
+                      });
+  reg::Entity player = createPlayer(scene, playerMaterial, editor);
+  PlayerController *pc = &scene.getNativeScript<PlayerController>(player);
+
+  std::vector<ObstaclesController *> obstacles;
+  obstacles.reserve(s_numberOfObstacles);
+  for (char i = 0; i < s_numberOfObstacles; i++) {
+    reg::Entity e = ObstaclesController::create(scene, *obstacleMaterial);
+    ObstaclesController &oc = scene.getNativeScript<ObstaclesController>(e);
+    obstacles.emplace_back(&oc);
   };
-
-  pain::Application::Get().addImGuiInstance((ImGuiInstance *)this);
-  m_points = 0;
+  return {pc, obstacleMaterial, std::move(obstacles)};
 }
 
-void Game::onUpdate(double deltaTime)
-{
+reg::Entity Game::create(pain::Scene &scene, pain::Application &app,
+                         painless::CustomEditor &editor) {
+  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app, editor);
+  reg::Entity game = scene.createEntity();
+  scene.createComponents(game, pain::NativeScriptComponent{});
+  pain::Scene::emplaceScript<Game>(game, scene, pc, obstacleMaterial,
+                                   std::move(obstacles), editor, app);
+  return game;
+}
+Game::Game(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
+           pain::Material *om, std::vector<ObstaclesController *> &&obc,
+           painless::CustomEditor &e, pain::Application &a)
+    : pain::WorldObject(entity, scene), m_playerController(pc),
+      m_obstacles(obc), m_obstaclesMaterial(std::move(om)), m_customEditor(e),
+      m_app(a) {};
+
+void Game::changeObstaclesColors(pain::Color color) {
+  m_obstaclesMaterial->m_color = color;
+}
+
+void Game::onCreate() {
+
+  m_customEditor.addToPanel("Player Controller", 1, [this]() {
+    ImGui::Begin("Player Controller");
+    ImGui::Text("Obstacles Parameters Settings");
+    ImGui::Text("Number of Obstacles: %d", s_numberOfObstacles);
+    ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
+                      "%.3f");
+    ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
+    ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
+    ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01f, 1.0f,
+                      "%.3f");
+    ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1f, 1.0f, "%.3f");
+    ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1f, 1.0f, "%.3f");
+    ImGui::SeparatorText("Info");
+    ImGui::Text("Obstacle Spawn counter:% .2f seconds", m_obstaclesInterval);
+    ImGui::Text(" Last Obstacle index : %.2d ", m_index);
+    ImGui::Text(" Points : %.4d ", m_points);
+    ImGui::Text(" Loses : %.4d ", m_loses);
+
+    double time = m_app.getTimeMultiplier();
+    ImGui::InputDouble("Time Multiplier ", &time, 0.1f, 1.0f, "%.3f");
+    m_app.setTimeMultiplier(time);
+
+    if (ImGui::Button("Toogle Rendering")) {
+      m_rendering = !m_rendering;
+      m_app.setRendereing(m_rendering);
+    }
+    ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
+    ImGui::End();
+  });
+}
+
+void Game::onUpdate(pain::DeltaTime deltaTime) {
   if (m_isRunning) {
     // Overall game
     // 1. if obstacle is outside camera, call onDestroy
@@ -44,73 +106,58 @@ void Game::onUpdate(double deltaTime)
     // 3. if hits, remove one life
     // 4. if 0 lifes, score menu
 
-    m_waveColor = fmod(m_waveColor + m_colorInterval * deltaTime, 360.f);
+    m_waveColor =
+        fmod(m_waveColor + m_colorInterval * deltaTime.getSecondsf(), 360.f);
 
     const auto waveColorRadians = glm::radians(m_waveColor);
 
     // spawn obstacles
-    m_obstaclesInterval -= m_intervalTime * deltaTime;
+    m_obstaclesInterval -= m_intervalTime * deltaTime.getSecondsf();
     if (m_obstaclesInterval <= 0) {
       m_obstaclesInterval = m_maxInterval;
-      const float randAngle = ((float)rand() / RAND_MAX) * M_PI * 2;
+      const float randAngle =
+          static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * M_PI * 2;
 
-      m_index = (m_index + 1) % m_numberOfObstacles;
+      m_index = (m_index + 1) % s_numberOfObstacles;
       reviveObstacle(m_index, randAngle, true);
-      m_index = (m_index + 1) % m_numberOfObstacles;
+      m_index = (m_index + 1) % s_numberOfObstacles;
       reviveObstacle(m_index, randAngle, false);
     }
 
     // change obstacle color
-    glm::vec3 color(0.2f + sin(waveColorRadians) * 0.6f,               // red
-                    0.3f + sin(waveColorRadians + M_PI / 4) * 0.6f,    // green
-                    0.4f + sin(waveColorRadians + M_PI * 3 / 4) * 0.6f // blue
+    pain::Color color(0.2f + sin(waveColorRadians) * 0.6f,            // red
+                      0.3f + sin(waveColorRadians + M_PI / 4) * 0.6f, // green
+                      0.4f + sin(waveColorRadians + M_PI * 3 / 4) * 0.6f // blue
     );
-    for (char i = 0; i < m_numberOfObstacles; i++) {
-      Obstacles &obstacle = m_obstacles.at(i);
-      auto *inst = (ObstaclesController *)obstacle
-                       .getComponent<pain::NativeScriptComponent>()
-                       .instance;
-      inst->changeColor(color);
-      // no extra life for now
-      if (checkIntersection(*m_pplayer, obstacle, i))
+    m_obstaclesMaterial->m_color = color;
+    for (char i = 0; i < s_numberOfObstacles; i++) {
+      if (checkIntersection(*m_obstacles[i]))
         afterLosing();
     }
   }
 }
 
-void Game::afterLosing()
-{
+void Game::afterLosing() {
   m_loses++;
   m_points = 0;
   // reset Player position
-  ((PlayerController *)m_pplayer->getComponent<pain::NativeScriptComponent>()
-       .instance)
-      ->resetPosition();
+  m_playerController->resetPosition();
   // clear obstacles
-  for (char i = 0; i < m_numberOfObstacles; i++) {
-    Obstacles &obstacle = m_obstacles.at(i);
-    auto *inst = (ObstaclesController *)obstacle
-                     .getComponent<pain::NativeScriptComponent>()
-                     .instance;
-    inst->revive(0, 0, false, &m_points);
-  }
+  for (char i = 0; i < s_numberOfObstacles; i++)
+    m_obstacles[i]->revive(0, 0, false, &m_points);
 }
 
-void Game::reviveObstacle(int index, float randomAngle, bool upsideDown)
-{
+void Game::reviveObstacle(int index, float randomAngle, bool upsideDown) {
   const float height = upsideDown
                            ? sin(randomAngle) * 0.7 + 0.75f + m_obstaclesSpacing
                            : sin(randomAngle) * 0.7 - 1.25f;
-  ((ObstaclesController *)m_obstacles.at(index)
-       .getComponent<pain::NativeScriptComponent>()
-       .instance)
-      ->revive(m_defaultObstacleSpeed, height, upsideDown, &m_points);
+  m_obstacles.at(index)->revive(m_defaultObstacleSpeed, height, upsideDown,
+                                &m_points);
 }
 
 template <std::size_t T>
 glm::vec2 Game::projection(const std::array<glm::vec2, T> &shape,
-                           const glm::vec2 &axis)
-{
+                           const glm::vec2 &axis) {
   float min = glm::dot(shape[0], axis);
   float max = min;
   for (size_t i = 1; i < shape.size(); i++) {
@@ -121,14 +168,12 @@ glm::vec2 Game::projection(const std::array<glm::vec2, T> &shape,
   return {min, max};
 }
 
-bool Game::checkIntersection(const Player &player, const Obstacles &obstacle,
-                             int index)
-{
-  auto &ptc = player.getComponent<pain::TransformComponent>();
-  auto &prc = player.getComponent<pain::RotationComponent>();
-  auto &psc = player.getComponent<pain::SpriteComponent>();
-  auto &otc = obstacle.getComponent<pain::TransformComponent>();
-  auto &otgc = obstacle.getComponent<pain::TrianguleComponent>();
+bool Game::checkIntersection(const ObstaclesController &obstacle) {
+  auto &ptc = m_playerController->getComponent<pain::Transform2dComponent>();
+  auto &prc = m_playerController->getComponent<pain::RotationComponent>();
+  auto &psc = m_playerController->getComponent<pain::SpriteComponent>();
+  auto &otc = obstacle.getComponent<pain::Transform2dComponent>();
+  auto &osc = obstacle.getComponent<pain::SpriteComponent>();
 
   // get quad vertices
   constexpr glm::vec4 quadVertexPositions[4] = {
@@ -137,8 +182,10 @@ bool Game::checkIntersection(const Player &player, const Obstacles &obstacle,
       glm::vec4(0.5f, 0.5f, 0.f, 1.f),
       glm::vec4(-0.5f, 0.5f, 0.f, 1.f),
   };
-  const glm::mat4 transform = pain::Renderer2d::getTransform(
-      ptc.m_position, psc.m_size, prc.m_rotationAngle);
+
+  const pain::QuadShape &qs = std::get<pain::QuadShape>(psc.m_shape);
+  const glm::mat4 transform = pain::Renderer2d::getUniformTransform(
+      ptc.m_position, qs.side, prc.m_rotationAngle);
 
   std::array<glm::vec2, 4> qVertices = {
       transform * quadVertexPositions[0],
@@ -153,8 +200,9 @@ bool Game::checkIntersection(const Player &player, const Obstacles &obstacle,
       glm::vec4(0.5f, -0.5f, 0.f, 1.f),
       glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
   };
+  const pain::TriangleShape &ts = std::get<pain::TriangleShape>(osc.m_shape);
   const glm::mat4 transformTri =
-      pain::Renderer2d::getTransform(otc.m_position, otgc.m_height);
+      pain::Renderer2d::getTransform(otc.m_position, {ts.base, ts.height});
   const std::array<glm::vec2, 3> tVertices = {
       transformTri * triVertexPositions[0], //
       transformTri * triVertexPositions[1], //
@@ -186,37 +234,4 @@ bool Game::checkIntersection(const Player &player, const Obstacles &obstacle,
   }
 
   return true;
-}
-
-const void Game::onImGuiUpdate()
-{
-  ImGui::Begin("Player Controller");
-  ImGui::Text("Obstacles Parameters Settings");
-  ImGui::InputInt("Number of Obstacles", &m_numberOfObstacles);
-  ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
-                    "%.3f");
-  ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
-  ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
-  ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01f, 1.0f,
-                    "%.3f");
-  ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1f, 1.0f, "%.3f");
-  ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1f, 1.0f, "%.3f");
-  ImGui::SeparatorText("Info");
-  ImGui::Text("Obstacle Spawn counter: %.2f seconds", m_obstaclesInterval);
-  ImGui::Text("Last Obstacle index: %.2d", m_index);
-  ImGui::Text("Points: %.4d", m_points);
-  ImGui::Text("Loses: %.4d", m_loses);
-  ImGui::Text("TPS: %.1f", pain::Application::Get().getCurrentTPS());
-  ImGui::InputDouble("Time Multiplier",
-                     pain::Application::Get().getTimeMultiplier(), 0.1f, 1.0f,
-                     "%.3f");
-  if (ImGui::Button("Toogle Rendering")) {
-    m_rendering = !m_rendering;
-    if (m_rendering)
-      pain::Application::Get().disableRendering();
-    else
-      pain::Application::Get().enableRendering();
-  }
-  ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
-  ImGui::End();
 }

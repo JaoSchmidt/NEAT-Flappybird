@@ -14,13 +14,12 @@ struct InnovationStatic {
   int m_OutNodeId;
 
   InnovationStatic(int innovation, int inNodeId, int outNodeId)
-      : m_innovation(innovation), m_InNodeId(inNodeId), m_OutNodeId(outNodeId)
-  {
+      : m_innovation(innovation), m_InNodeId(inNodeId), m_OutNodeId(outNodeId) {
   }
   InnovationStatic(InnovationStatic &&o) = default;
   InnovationStatic &operator=(InnovationStatic &&o) = default;
 
-  COPIES(InnovationStatic);
+  COPYABLE(InnovationStatic);
 };
 
 struct ConnectionGene {
@@ -33,20 +32,17 @@ struct ConnectionGene {
   ConnectionGene(int inputNodeId, int outputNodeId, double weight, bool enable,
                  int innovation)
       : m_InNodeId{inputNodeId}, m_OutNodeId{outputNodeId},
-        m_innovation{innovation}, m_enable{enable}, m_weight{weight}
-  {
-  }
+        m_innovation{innovation}, m_enable{enable}, m_weight{weight} {}
 
   ConnectionGene(ConnectionGene &&o) = default;
   ConnectionGene &operator=(ConnectionGene &&o) = default;
 
-  ConnectionGene clone() const
-  {
+  ConnectionGene clone() const {
     return ConnectionGene(m_InNodeId, m_OutNodeId, m_weight, m_enable,
                           m_innovation);
   }
 
-  COPIES(ConnectionGene)
+  COPYABLE(ConnectionGene)
 };
 
 // represents a neuron
@@ -58,7 +54,7 @@ struct NodeGene {
   NodeGene(int nodeId, double bias) : m_neuron_id{nodeId}, m_bias{bias} {}
   NodeGene(NodeGene &&o) = default;
   NodeGene &operator=(NodeGene &&o) = default;
-  COPIES(NodeGene)
+  COPYABLE(NodeGene)
   // prefered way to copy
   NodeGene clone() const { return NodeGene(m_neuron_id, m_bias); };
 };
@@ -81,8 +77,8 @@ struct Genome {
 
 private:
   friend class Individual;
-  const bool willIsolateOutNode(const ConnectionGene &link) const;
-  const bool willIsolateInNode(const ConnectionGene &link) const;
+  bool willIsolateOutNode(const ConnectionGene &link) const;
+  bool willIsolateInNode(const ConnectionGene &link) const;
   bool hasPathDFS(int startNode, int targetNode) const;
   void topologySortNN(int numInputs);
   // get correct innovation or create new one
@@ -91,26 +87,18 @@ private:
 public:
   ~Genome() = default;
   Genome(std::vector<InnovationStatic> &globalInnovations)
-      : m_neurons{}, m_links{}, m_globalInnovations{globalInnovations}
-  {
-  }
+      : m_neurons{}, m_links{}, m_globalInnovations{globalInnovations} {}
 
   Genome(std::vector<NodeGene> neurons, std::vector<ConnectionGene> links,
-         std::vector<int> layers,
          std::vector<InnovationStatic> &globalInnovations)
       : m_neurons(std::move(neurons)), m_links(std::move(links)),
-        m_globalInnovations(globalInnovations)
-  {
-  }
+        m_globalInnovations(globalInnovations) {}
 
   // Copy Constructor
   Genome(const Genome &other)
       : m_neurons(other.m_neurons), m_links(other.m_links),
-        m_globalInnovations(other.m_globalInnovations)
-  {
-  }
-  Genome &operator=(const Genome &other)
-  {
+        m_globalInnovations(other.m_globalInnovations) {}
+  Genome &operator=(const Genome &other) {
     if (this != &other) {
       m_neurons = other.m_neurons;
       m_links = other.m_links;
@@ -122,11 +110,8 @@ public:
   Genome(Genome &&other) noexcept
       : m_neurons(std::move(other.m_neurons)),
         m_links(std::move(other.m_links)),
-        m_globalInnovations(other.m_globalInnovations)
-  {
-  }
-  Genome &operator=(Genome &&other) noexcept
-  {
+        m_globalInnovations(other.m_globalInnovations) {}
+  Genome &operator=(Genome &&other) noexcept {
     if (this != &other) {
       m_neurons = std::move(other.m_neurons);
       m_links = std::move(other.m_links);

@@ -1,5 +1,5 @@
 #pragma once
-#include "Game.h"
+#include "FlappyGame.h"
 #include "NEAT/Individuals.h"
 #include "NEAT/NN.h"
 #include <vector>
@@ -9,7 +9,7 @@ struct SpeciesFit {
   double avereageFitness = 0.0;
 };
 
-class Population : public Game {
+class Population : public FlappyGame {
 
 public:
   reg::Entity static create(pain::Scene &scene, pain::Application &app,
@@ -18,7 +18,7 @@ public:
   void onUpdate(pain::DeltaTime deltaTime);
 
   Population(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
-             pain::Material *om, std::vector<ObstaclesController *> &&obc,
+             pain::Material &om, std::vector<ObstaclesController *> obc,
              painless::CustomEditor &e, pain::Application &a);
 
 protected:

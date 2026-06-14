@@ -21,6 +21,8 @@ public:
   // HACK: This exists because I can figure out how push events w/SDL_PushEvent
   bool m_automaticJump = false;
 
+  std::string name = "undefined";
+
 private:
   float m_pseudoVelocityX = 1.f;
   float m_maxVelY = 2.f;

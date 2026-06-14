@@ -1,11 +1,11 @@
-#include "Game.h"
+#include "FlappyGame.h"
 #include "Assets/ManagerTexture.h"
 #include <cstdlib>
 
-std::tuple<PlayerController *, pain::Material *,
-           std::vector<ObstaclesController *> &&>
-Game::createHelper(pain::Scene &scene, pain::Application &app,
-                   painless::CustomEditor &editor) {
+std::tuple<PlayerController *, pain::Material &,
+           std::vector<ObstaclesController *>>
+FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
+                         painless::CustomEditor &editor) {
   const int w = 1024;
   const int h = 768;
 
@@ -17,55 +17,58 @@ Game::createHelper(pain::Scene &scene, pain::Application &app,
   pain::Texture &playerTexture =
       pain::TextureManager::createTexture("resources/textures/Player.png");
 
-  pain::Material playerMaterial = renderers.m_materialManager.createMaterial(
-      "Player mat", pain::MaterialCreationInfo{
-                        .color = pain::Colors::FullWhite,
-                        .params = pain::ParamSimplest{},
-                        .shader = defaultShader,
-                        .texture = playerTexture,
-                    });
+  pain::Material &playerMaterial = renderers.m_materialManager.createMaterial(
+      "Player mat", //
+      pain::MaterialCreationInfo{
+          .color = pain::Colors::FullWhite,
+          .params = pain::ParamSimplest{},
+          .shader = defaultShader,
+          .texture = playerTexture,
+      } //
+  );
 
-  pain::Material *obstacleMaterial =
-      &renderers.m_materialManager.createMaterial(
-          "Obstacle", pain::MaterialCreationInfo{
-                          .color = pain::Colors::FullWhite,
-                          .params = pain::ParamSimplest{},
-                          .shader = defaultShader,
-                      });
+  pain::Material &obstacleMaterial = renderers.m_materialManager.createMaterial(
+      "Obstacle", //
+      pain::MaterialCreationInfo{
+          .color = pain::Colors::FullWhite,
+          .params = pain::ParamSimplest{},
+          .shader = defaultShader,
+      } //
+  );
   reg::Entity player = createPlayer(scene, playerMaterial, editor);
   PlayerController *pc = &scene.getNativeScript<PlayerController>(player);
 
   std::vector<ObstaclesController *> obstacles;
   obstacles.reserve(s_numberOfObstacles);
   for (char i = 0; i < s_numberOfObstacles; i++) {
-    reg::Entity e = ObstaclesController::create(scene, *obstacleMaterial);
+    reg::Entity e = ObstaclesController::create(scene, obstacleMaterial);
     ObstaclesController &oc = scene.getNativeScript<ObstaclesController>(e);
     obstacles.emplace_back(&oc);
   };
   return {pc, obstacleMaterial, std::move(obstacles)};
 }
 
-reg::Entity Game::create(pain::Scene &scene, pain::Application &app,
-                         painless::CustomEditor &editor) {
+reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app,
+                               painless::CustomEditor &editor) {
   auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app, editor);
-  reg::Entity game = scene.createEntity();
-  scene.createComponents(game, pain::NativeScriptComponent{});
-  pain::Scene::emplaceScript<Game>(game, scene, pc, obstacleMaterial,
-                                   std::move(obstacles), editor, app);
-  return game;
+  pain::Scene::emplaceScript<FlappyGame>(scene.getEntity(), scene, pc,
+                                         obstacleMaterial, std::move(obstacles),
+                                         editor, app);
+  return scene.getEntity();
 }
-Game::Game(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
-           pain::Material *om, std::vector<ObstaclesController *> &&obc,
-           painless::CustomEditor &e, pain::Application &a)
+FlappyGame::FlappyGame(reg::Entity entity, pain::Scene &scene,
+                       PlayerController *pc, pain::Material &om,
+                       std::vector<ObstaclesController *> obc,
+                       painless::CustomEditor &e, pain::Application &a)
     : pain::WorldObject(entity, scene), m_playerController(pc),
-      m_obstacles(obc), m_obstaclesMaterial(std::move(om)), m_customEditor(e),
+      m_obstacles(std::move(obc)), m_obstaclesMaterial(om), m_customEditor(e),
       m_app(a) {};
 
-void Game::changeObstaclesColors(pain::Color color) {
-  m_obstaclesMaterial->m_color = color;
+void FlappyGame::changeObstaclesColors(pain::Color color) {
+  m_obstaclesMaterial.m_color = color;
 }
 
-void Game::onCreate() {
+void FlappyGame::onCreate() {
 
   m_customEditor.addToPanel("Player Controller", 1, [this]() {
     ImGui::Begin("Player Controller");
@@ -98,7 +101,7 @@ void Game::onCreate() {
   });
 }
 
-void Game::onUpdate(pain::DeltaTime deltaTime) {
+void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
   if (m_isRunning) {
     // Overall game
     // 1. if obstacle is outside camera, call onDestroy
@@ -129,7 +132,7 @@ void Game::onUpdate(pain::DeltaTime deltaTime) {
                       0.3f + sin(waveColorRadians + M_PI / 4) * 0.6f, // green
                       0.4f + sin(waveColorRadians + M_PI * 3 / 4) * 0.6f // blue
     );
-    m_obstaclesMaterial->m_color = color;
+    m_obstaclesMaterial.m_color = color;
     for (char i = 0; i < s_numberOfObstacles; i++) {
       if (checkIntersection(*m_obstacles[i]))
         afterLosing();
@@ -137,7 +140,7 @@ void Game::onUpdate(pain::DeltaTime deltaTime) {
   }
 }
 
-void Game::afterLosing() {
+void FlappyGame::afterLosing() {
   m_loses++;
   m_points = 0;
   // reset Player position
@@ -147,7 +150,7 @@ void Game::afterLosing() {
     m_obstacles[i]->revive(0, 0, false, &m_points);
 }
 
-void Game::reviveObstacle(int index, float randomAngle, bool upsideDown) {
+void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown) {
   const float height = upsideDown
                            ? sin(randomAngle) * 0.7 + 0.75f + m_obstaclesSpacing
                            : sin(randomAngle) * 0.7 - 1.25f;
@@ -156,8 +159,8 @@ void Game::reviveObstacle(int index, float randomAngle, bool upsideDown) {
 }
 
 template <std::size_t T>
-glm::vec2 Game::projection(const std::array<glm::vec2, T> &shape,
-                           const glm::vec2 &axis) {
+glm::vec2 FlappyGame::projection(const std::array<glm::vec2, T> &shape,
+                                 const glm::vec2 &axis) {
   float min = glm::dot(shape[0], axis);
   float max = min;
   for (size_t i = 1; i < shape.size(); i++) {
@@ -168,7 +171,7 @@ glm::vec2 Game::projection(const std::array<glm::vec2, T> &shape,
   return {min, max};
 }
 
-bool Game::checkIntersection(const ObstaclesController &obstacle) {
+bool FlappyGame::checkIntersection(const ObstaclesController &obstacle) {
   auto &ptc = m_playerController->getComponent<pain::Transform2dComponent>();
   auto &prc = m_playerController->getComponent<pain::RotationComponent>();
   auto &psc = m_playerController->getComponent<pain::SpriteComponent>();
@@ -183,9 +186,9 @@ bool Game::checkIntersection(const ObstaclesController &obstacle) {
       glm::vec4(-0.5f, 0.5f, 0.f, 1.f),
   };
 
-  const pain::QuadShape &qs = std::get<pain::QuadShape>(psc.m_shape);
-  const glm::mat4 transform = pain::Renderer2d::getUniformTransform(
-      ptc.m_position, qs.side, prc.m_rotationAngle);
+  const pain::RectShape &qs = std::get<pain::RectShape>(psc.m_shape);
+  const glm::mat4 transform = pain::Renderer2d::getTransform(
+      ptc.m_position, qs.size, prc.m_rotationAngle);
 
   std::array<glm::vec2, 4> qVertices = {
       transform * quadVertexPositions[0],
@@ -228,9 +231,8 @@ bool Game::checkIntersection(const ObstaclesController &obstacle) {
     auto boundB = projection(tVertices, axis);
 
     // Check for overlap
-    if (boundA.y < boundB.x || boundB.y < boundA.x) {
+    if (boundA.y < boundB.x || boundB.y < boundA.x)
       return false; // No collision
-    }
   }
 
   return true;

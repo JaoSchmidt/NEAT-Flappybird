@@ -12,8 +12,10 @@ reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
       pain::SpriteComponent::create(
           {.layer = pain::RenderLayer::Default,
            .shape = pain::TriangleShape{0.8f, 2.00f}}),
-      pain::MaterialComponent::create(m) //
-  );
+      pain::MaterialComponent::create(m), //
+      pain::NativeScriptComponent{});
+
+  pain::Scene::emplaceScript<ObstaclesController>(e, scene);
   return e;
 }
 

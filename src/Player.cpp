@@ -11,8 +11,9 @@ reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
   reg::Entity entity = scene.createEntity();
   scene.createComponents(
       entity, pain::Transform2dComponent{glm::vec2(DEFAULTXPOS, 0.0f)},
-      pain::Movement2dComponent{glm::vec2(0.f, 0.0f), 1.0f},
-      pain::MaterialComponent::create(m),
+      pain::Movement2dComponent{glm::vec2(0.f, 0.0f), 1.0f}, //
+      pain::MaterialComponent::create(m),                    //
+      pain::NativeScriptComponent{},                         //
       pain::ParticleSprayComponent::create({
           .interval = pain::DeltaTime::oneSecond() / 8,
           .randAngleFactor = 20.f,
@@ -47,6 +48,8 @@ void PlayerController::onCreate() {
   psc.randSizeFactor = 1.f;
   psc.sizeChangeSpeed = 0.15f;
 
+  m_customEditor.registerPanel("Player Controller", 1.f,
+                               painless::InterfaceMenu::SIDEBAR);
   m_customEditor.addToPanel("Player Controller", 1, [this]() {
     ImGui::Begin("Player Controller");
     ImGui::Text("General Settings");

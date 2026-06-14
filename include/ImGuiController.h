@@ -1,8 +1,5 @@
 #pragma once
 
-#include <pain.h>
-#include <painless.h>
-
 // class ImGuiController : public pain::ImGuiInstance {
 // public:
 //   const void onImGuiUpdate() override {
@@ -19,12 +16,12 @@
 //   float m_vecColor[4] = {0.9f, 0.3f, 0.2f, 1.0f};
 // };
 //
-namespace ShowStats {
-class Script {
-  void onCreate() {
-    //
-  };
-
-  painless::CustomEditor &m_customEditor;
-};
-} // namespace ShowStats
+// namespace ShowStats {
+// class Script {
+//   void onCreate() {
+//     //
+//   };
+//
+//   painless::CustomEditor &m_customEditor;
+// };
+// } // namespace ShowStats

@@ -1,6 +1,6 @@
 notify_wrapper.sh
 build
-remote-build
+ryzen-build
 PASSWORD
 outsite-build.sh
 build-ci

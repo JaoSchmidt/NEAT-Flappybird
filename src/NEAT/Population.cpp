@@ -15,10 +15,11 @@ reg::Entity Population::create(pain::Scene &scene, pain::Application &app,
 }
 
 Population::Population(reg::Entity entity, pain::Scene &scene,
-                       PlayerController *pc, pain::Material *om,
-                       std::vector<ObstaclesController *> &&obc,
+                       PlayerController *pc, pain::Material &om,
+                       std::vector<ObstaclesController *> obc,
                        painless::CustomEditor &e, pain::Application &a)
-    : Game(entity, scene, pc, om, std::move(obc), e, a), worldScene(scene) {};
+    : FlappyGame(entity, scene, pc, om, std::move(obc), e, a),
+      worldScene(scene) {};
 
 void Population::onCreate() {
   m_points = 0;
@@ -147,7 +148,7 @@ void Population::afterLosing() {
     m_currentIndIndex = (m_currentIndIndex + 1) % m_config.m_populationSize;
   }
   m_loses++;
-  Game::afterLosing();
+  FlappyGame::afterLosing();
 }
 
 void Population::speciateFitness() {

@@ -1,7 +1,7 @@
 #include <pain.h>
 #include <painless.h>
 
-#include "Game.h"
+#include "FlappyGame.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
@@ -51,8 +51,8 @@ pain::Application *pain::createApplication() {
   // (Optional) Define a small native script for the world scene
   // that will be executed on as root script. Must have added
   // System::NativeScript
-  Game::create( //
-      scene,    //
+  FlappyGame::create( //
+      scene,          //
       *app,
       editor //
   );

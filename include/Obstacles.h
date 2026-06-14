@@ -5,6 +5,7 @@
 
 class ObstaclesController : public pain::WorldObject {
 public:
+  using pain::WorldObject::WorldObject;
   reg::Entity static create(pain::Scene &scene, pain::Material &m);
   void onUpdate(pain::DeltaTime deltaTime);
   void revive(bool upsideDown, bool movable);

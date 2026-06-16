@@ -34,13 +34,7 @@ PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene,
 void PlayerController::onCreate() {
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   mc.m_rotationSpeed = 0.0f;
-  m_pseudoVelocityX = 1.f;
-  m_gravity = -0.9f;
-  m_jumpForce = 0.0f;
-  m_jumpImpulse = 4.0f;
   m_dampingFactor = 50.f;
-  m_maxVelY = 2.f;
-  m_displayUpdates = false;
   m_emissionInterval = 0.02f;
   pain::ParticleSprayComponent &psc =
       getComponent<pain::ParticleSprayComponent>();
@@ -71,7 +65,6 @@ void PlayerController::onRender(pain::RenderContext &renderers,
 
   UNUSED(renderers)
   UNUSED(isMinimized)
-  constexpr glm::mat2 rotate90{glm::vec2(0, -1), glm::vec2(1, 0)};
   const pain::Transform2dComponent &tc =
       getComponent<pain::Transform2dComponent>();
   const pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
@@ -88,14 +81,15 @@ void PlayerController::onRender(pain::RenderContext &renderers,
       const float rando =
           static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f;
       const float randoAngle = rando * glm::radians(psc.randAngleFactor);
-      // already rotated 90 degrees btw
+      // rotation is already rotated 90 degrees btw
       const glm::mat2 rotation =
           glm::mat2(-sin(randoAngle), -cos(randoAngle), //
                     cos(randoAngle), -sin(randoAngle));
 
       pain::SprayParticle &p = psc.particles[psc.currentParticle];
+      psc.next();
       p = {.offset = tc.m_position,
-           .normal = glm::vec2(rotate90 * rc.m_rotation * 0.05f),
+           .normal = glm::vec2(rotation * rc.m_rotation * 0.05f),
            .startTime = currentTime,
            .alive = true};
       m_timeSinceLastEmission = 0.0f; // Reset the timer
@@ -104,14 +98,14 @@ void PlayerController::onRender(pain::RenderContext &renderers,
 }
 
 void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
-  double deltaTimeSec = deltaTime.getSeconds();
+  const float deltaTimeSec = deltaTime.getSecondsf();
   pain::Transform2dComponent &tc = getComponent<pain::Transform2dComponent>();
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
 
   if (m_jumpForce > 0.f)
     m_jumpForce = m_jumpForce - deltaTimeSec * m_dampingFactor;
-  else if (m_jumpForce <= 0.f)
+  else
     m_jumpForce = 0.f;
 
   m_timeSinceLastEmission += deltaTimeSec;
@@ -133,19 +127,19 @@ void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
   }
 
   // velocity y
-  mc.m_velocity.y = std::clamp(mc.m_velocity.y + acc * (float)deltaTimeSec,
-                               -m_maxVelY, m_maxVelY);
+  mc.m_velocity.y =
+      std::clamp(mc.m_velocity.y + acc * deltaTimeSec, -m_maxVelY, m_maxVelY);
   // "velocity x"
-  rc.m_rotationAngle =
+  rc.m_rotationRadians =
       -std::numbers::pi / 2 + std::atan2(mc.m_velocity.y, m_pseudoVelocityX);
 
-  if (m_displayUpdates) {
+  if (state[SDL_SCANCODE_SPACE] && m_displayUpdates) {
     LOG_I("---------------------------------------------");
     LOG_I("m_jumpForce {}", m_jumpForce);
     LOG_I("acc {}", acc);
     LOG_I("mc.m_velocity.y {}", mc.m_velocity.y);
     LOG_I("Y/X {}", mc.m_velocity.y / m_pseudoVelocityX);
-    LOG_I("atan {}", rc.m_rotationAngle);
+    LOG_I("atan {}", rc.m_rotationRadians);
   }
 }
 
@@ -159,7 +153,7 @@ void PlayerController::resetPosition() {
   tc.m_position = {-0.8f, 0.f};
   mc.m_velocity = {0.f, 1.f};
   rc.m_rotation = {0.f, 1.f, 0.f};
-  rc.m_rotationAngle = 315.f;
+  rc.m_rotationRadians = 315.f;
 }
 
 // void PlayerController::onDestroy() { delete m_pIG; }

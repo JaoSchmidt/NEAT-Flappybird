@@ -12,7 +12,7 @@ pain::Application *pain::createApplication() {
 
   // Retrieve the app context defined inside "resources/InternalConfig.ini"
   InternalConfig internalIni;
-  internalIni.readAndUpdate(ini.assetsPath.value.c_str());
+  internalIni.readAndUpdate(ini.assetsPath.value);
 
   // Create the application + OpenGL + Event contexts
   Application *app = Application::createApplication( //

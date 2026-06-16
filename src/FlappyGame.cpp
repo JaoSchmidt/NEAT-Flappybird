@@ -9,8 +9,10 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
   const int w = 1024;
   const int h = 768;
 
-  pain::Dummy2dCamera::createBasicCamera(scene, w, h, 1.f);
+  pain::Dummy2dCamera::createBasicCamera(scene, w, h, 1.F);
   pain::Renderers &renderers = app.getRenderers();
+  pain::Shader &obstacleShader = renderers.m_materialManager.getDefaultShader(
+      pain::DefaultShader::SimpleTriangles);
   pain::Shader &defaultShader = renderers.m_materialManager.getDefaultShader(
       pain::DefaultShader::Texture);
 
@@ -20,20 +22,20 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
   pain::Material &playerMaterial = renderers.m_materialManager.createMaterial(
       "Player mat", //
       pain::MaterialCreationInfo{
-          .color = pain::Colors::FullWhite,
+          .color = pain::Colors::SkyBlue,
           .params = pain::ParamSimplest{},
           .shader = defaultShader,
           .texture = playerTexture,
+          .name = "Player Material" //
       } //
   );
 
   pain::Material &obstacleMaterial = renderers.m_materialManager.createMaterial(
       "Obstacle", //
-      pain::MaterialCreationInfo{
-          .color = pain::Colors::FullWhite,
-          .params = pain::ParamSimplest{},
-          .shader = defaultShader,
-      } //
+      pain::MaterialCreationInfo{.color = pain::Colors::SkyBlue,
+                                 .params = pain::ParamSimplest{},
+                                 .shader = obstacleShader,
+                                 .name = "Obstacle Material"} //
   );
   reg::Entity player = createPlayer(scene, playerMaterial, editor);
   PlayerController *pc = &scene.getNativeScript<PlayerController>(player);
@@ -74,7 +76,7 @@ void FlappyGame::onCreate() {
     ImGui::Begin("Player Controller");
     ImGui::Text("Obstacles Parameters Settings");
     ImGui::Text("Number of Obstacles: %d", s_numberOfObstacles);
-    ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
+    ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01F, 1.0f,
                       "%.3f");
     ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
     ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
@@ -111,8 +113,12 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
 
     m_waveColor =
         fmod(m_waveColor + m_colorInterval * deltaTime.getSecondsf(), 360.f);
-
     const auto waveColorRadians = glm::radians(m_waveColor);
+    // change obstacle color
+    pain::Color color(125 + sin(waveColorRadians) * 124,               // red
+                      76.5 + sin(waveColorRadians + M_PI / 4) * 76.5,  // green
+                      102 + sin(waveColorRadians + M_PI * 3 / 4) * 102 // blue
+    );
 
     // spawn obstacles
     m_obstaclesInterval -= m_intervalTime * deltaTime.getSecondsf();
@@ -127,11 +133,6 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
       reviveObstacle(m_index, randAngle, false);
     }
 
-    // change obstacle color
-    pain::Color color(0.2f + sin(waveColorRadians) * 0.6f,            // red
-                      0.3f + sin(waveColorRadians + M_PI / 4) * 0.6f, // green
-                      0.4f + sin(waveColorRadians + M_PI * 3 / 4) * 0.6f // blue
-    );
     m_obstaclesMaterial.m_color = color;
     for (char i = 0; i < s_numberOfObstacles; i++) {
       if (checkIntersection(*m_obstacles[i]))
@@ -188,7 +189,7 @@ bool FlappyGame::checkIntersection(const ObstaclesController &obstacle) {
 
   const pain::RectShape &qs = std::get<pain::RectShape>(psc.m_shape);
   const glm::mat4 transform = pain::Renderer2d::getTransform(
-      ptc.m_position, qs.size, prc.m_rotationAngle);
+      ptc.m_position, qs.size, prc.m_rotationRadians);
 
   std::array<glm::vec2, 4> qVertices = {
       transform * quadVertexPositions[0],

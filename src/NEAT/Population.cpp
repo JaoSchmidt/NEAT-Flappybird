@@ -69,7 +69,7 @@ void Population::onCreate() {
 
   m_playerY = &ptc.m_position.y;
   m_playerVy = &pmc.m_velocity.y;
-  m_playerRot = &prc.m_rotationAngle;
+  m_playerRot = &prc.m_rotationRadians;
 }
 
 // ** get index of the closest obstacle to the left of the player

@@ -4,7 +4,6 @@
 reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
 
   reg::Entity e = scene.createEntity();
-  // initial color glm::vec4(0.2f, 0.3f, 0.9f, 1.0f)
   scene.createComponents(
       e, //
       pain::Transform2dComponent(glm::vec3(2.0f, -0.5f, 0.f)),
@@ -16,6 +15,7 @@ reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
       pain::NativeScriptComponent{});
 
   pain::Scene::emplaceScript<ObstaclesController>(e, scene);
+
   return e;
 }
 
@@ -26,7 +26,6 @@ void ObstaclesController::onUpdate(pain::DeltaTime _) {
     (*m_points)++;
     m_canCountPoints = false;
   }
-  // LOG_I("tc = ({},{},{})", TP_VEC3(tc.m_position));
 }
 
 void ObstaclesController::revive(float obstacleSpeed, float height,
@@ -34,7 +33,7 @@ void ObstaclesController::revive(float obstacleSpeed, float height,
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   pain::Transform2dComponent &tc = getComponent<pain::Transform2dComponent>();
   pain::SpriteComponent &sp = getComponent<pain::SpriteComponent>();
-  pain::TriangleShape ts = std::get<pain::TriangleShape>(sp.m_shape);
+  pain::TriangleShape &ts = std::get<pain::TriangleShape>(sp.m_shape);
   m_points = points;
   // tgc.m_color = {0.5f, 0.5f, 0.5f, 1.0f};
   m_isUpsideDown = upsideDown;

@@ -24,14 +24,18 @@ public:
   std::string name = "undefined";
 
 private:
+  // physics
   float m_pseudoVelocityX = 1.f;
   float m_maxVelY = 2.f;
   float m_gravity = -0.9f;
   float m_jumpForce = 0.0f;
   float m_jumpImpulse = 4.f;
   float m_dampingFactor = 1.f;
+  // GUI
   bool m_displayUpdates = false;
+  int m_panelID = -1;
   // bool m_isRendering = false;
+
   // particle emission
   float m_timeSinceLastEmission = 0.f;
   float m_emissionInterval = 0.02f;

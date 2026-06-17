@@ -19,6 +19,7 @@ public:
 
 protected:
   bool m_rendering = true;
+  int m_panelID = -1;
   // parameters
   constexpr static int s_numberOfObstacles = 20;
   float m_obstaclesSpacing = 0.35f;
@@ -41,7 +42,7 @@ protected:
   std::vector<ObstaclesController *> m_obstacles = {};
   pain::Material &m_obstaclesMaterial;
 
-  painless::CustomEditor m_customEditor;
+  painless::CustomEditor &m_customEditor;
 
   pain::Application &m_app;
 
@@ -50,6 +51,7 @@ protected:
   bool checkIntersection(const ObstaclesController &obstacle);
   void afterLosing();
   void clearObstacles();
+
   std::tuple<PlayerController *, pain::Material &,
              std::vector<ObstaclesController
                              *>> static createHelper(pain::Scene &scene,

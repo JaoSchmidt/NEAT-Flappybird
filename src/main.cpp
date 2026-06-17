@@ -1,7 +1,7 @@
 #include <pain.h>
 #include <painless.h>
 
-#include "FlappyGame.h"
+#include "NEAT/Population.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
@@ -45,8 +45,7 @@ pain::Application *pain::createApplication() {
   uiScene.createComponents(uiScene.getEntity(), painless::ImGuiComponent{});
 
   // (Optional) A small native script that works as our game engine editor
-  painless::Editor &editor = painless::emplaceImGuiScript<painless::Editor>(
-      uiScene.getEntity(), uiScene, *app);
+  painless::Editor &editor = painless::Editor::create(uiScene, *app);
 
   // (Optional) Define a small native script for the world scene
   // that will be executed on as root script. Must have added

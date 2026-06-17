@@ -72,35 +72,39 @@ void FlappyGame::changeObstaclesColors(pain::Color color) {
 
 void FlappyGame::onCreate() {
 
-  m_customEditor.addToPanel("Player Controller", 1, [this]() {
-    ImGui::Begin("Player Controller");
-    ImGui::Text("Obstacles Parameters Settings");
-    ImGui::Text("Number of Obstacles: %d", s_numberOfObstacles);
-    ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01F, 1.0f,
-                      "%.3f");
-    ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
-    ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
-    ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01f, 1.0f,
-                      "%.3f");
-    ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1f, 1.0f, "%.3f");
-    ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1f, 1.0f, "%.3f");
-    ImGui::SeparatorText("Info");
-    ImGui::Text("Obstacle Spawn counter:% .2f seconds", m_obstaclesInterval);
-    ImGui::Text(" Last Obstacle index : %.2d ", m_index);
-    ImGui::Text(" Points : %.4d ", m_points);
-    ImGui::Text(" Loses : %.4d ", m_loses);
+  m_panelID = m_customEditor.addToPanel(
+      "Controller",
+      [this]() { //
+        ImGui::Text("Obstacles Parameters Settings");
+        ImGui::Text("Number of Obstacles: %d", s_numberOfObstacles);
+        ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01F, 1.0F,
+                          "%.3f");
+        ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1F, 1.0F, "%.3f");
+        ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1F, 1.0F, "%.3f");
+        ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01F,
+                          1.0F, "%.3F");
+        ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1F, 1.0F,
+                          "%.3f");
+        ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1F, 1.0F,
+                          "%.3f");
+        ImGui::SeparatorText("Info");
+        ImGui::Text("Obstacle Spawn counter:% .2F seconds",
+                    m_obstaclesInterval);
+        ImGui::Text(" Last Obstacle index : %.2d ", m_index);
+        ImGui::Text(" Points : %.4d ", m_points);
+        ImGui::Text(" Loses : %.4d ", m_loses);
 
-    double time = m_app.getTimeMultiplier();
-    ImGui::InputDouble("Time Multiplier ", &time, 0.1f, 1.0f, "%.3f");
-    m_app.setTimeMultiplier(time);
+        double time = m_app.getTimeMultiplier();
+        ImGui::InputDouble("Time Multiplier ", &time, 100., 1.0, "%.3f");
+        m_app.setTimeMultiplier(time);
 
-    if (ImGui::Button("Toogle Rendering")) {
-      m_rendering = !m_rendering;
-      m_app.setRendereing(m_rendering);
-    }
-    ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
-    ImGui::End();
-  });
+        if (ImGui::Button("Toogle Rendering")) {
+          m_rendering = !m_rendering;
+          m_app.setRendereing(m_rendering);
+        }
+        ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
+      },
+      2);
 }
 
 void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
@@ -112,7 +116,7 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
     // 4. if 0 lifes, score menu
 
     m_waveColor =
-        fmod(m_waveColor + m_colorInterval * deltaTime.getSecondsf(), 360.f);
+        fmod(m_waveColor + m_colorInterval * deltaTime.getSecondsf(), 360.F);
     const auto waveColorRadians = glm::radians(m_waveColor);
     // change obstacle color
     pain::Color color(125 + sin(waveColorRadians) * 124,               // red
@@ -152,9 +156,9 @@ void FlappyGame::afterLosing() {
 }
 
 void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown) {
-  const float height = upsideDown
-                           ? sin(randomAngle) * 0.7 + 0.75f + m_obstaclesSpacing
-                           : sin(randomAngle) * 0.7 - 1.25f;
+  const float height =
+      upsideDown ? sin(randomAngle) * 0.7F + 0.75F + m_obstaclesSpacing
+                 : sin(randomAngle) * 0.7F - 1.25F;
   m_obstacles.at(index)->revive(m_defaultObstacleSpeed, height, upsideDown,
                                 &m_points);
 }

@@ -21,6 +21,8 @@ public:
              pain::Material &om, std::vector<ObstaclesController *> obc,
              painless::CustomEditor &e, pain::Application &a);
 
+  NONCOPYABLE(Population)
+  NONMOVABLE(Population)
 protected:
   pain::Scene &worldScene; // To mess with time multipliers
   // forced delta time equal 1/60
@@ -28,7 +30,7 @@ protected:
   bool m_rendering = true;
   bool m_toggleNEAT = true;
 
-  NeatConfig m_config;
+  NeatConfig m_config = {};
   pain::RNG m_rng;
   std::vector<InnovationStatic> m_populationInnov;
   std::vector<Individual> m_individuals;
@@ -44,9 +46,9 @@ protected:
   void offspringAndMutate(std::vector<Individual> selection);
 
   // inputs
-  float *m_playerY;
-  float *m_playerVy;
-  float *m_playerRot;
+  float *m_playerY = nullptr;
+  float *m_playerVy = nullptr;
+  float *m_playerRot = nullptr;
 
   int m_pointsChecker = 0;   // detect inputs
   int m_currentObsIndex = 0; // current obstacle index

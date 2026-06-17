@@ -22,6 +22,19 @@ Population::Population(reg::Entity entity, pain::Scene &scene,
       worldScene(scene) {};
 
 void Population::onCreate() {
+  FlappyGame::onCreate();
+
+  m_customEditor.addToPanel("Controller", [this]() {
+    if (ImGui::Button("Toogle auto time multiplier"))
+      m_app.toggleSimulation();
+    ImGui::Text("Auto Multiplier is %s", m_app.isSimulation() ? "ON" : "OFF");
+    if (ImGui::Button("Toogle NEAT")) {
+      m_toggleNEAT = !m_toggleNEAT;
+    }
+    ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
+    ImGui::End();
+  });
+
   m_points = 0;
 
   m_config.m_generation = 0;
@@ -323,47 +336,3 @@ Genome Population::createMinimalGenome(int individualIndex) {
 
   return Genome(std::move(neurons), std::move(links), m_populationInnov);
 }
-
-// const void Population::onImGuiUpdate() {
-//   ImGui::Begin("Player Controller");
-//   ImGui::Text("Parameters Settings");
-//   ImGui::InputInt("Number of Obstacles", &m_numberOfObstacles);
-//   ImGui::InputFloat("Obstacles Spacing", &m_obstaclesSpacing, 0.01f, 1.0f,
-//                     "%.3f");
-//   ImGui::InputFloat("Max Interval", &m_maxInterval, 0.1f, 1.0f, "%.3f");
-//   ImGui::InputFloat("Interval Time", &m_intervalTime, 0.1f, 1.0f, "%.3f");
-//   ImGui::InputFloat("Obstacle Speed", &m_defaultObstacleSpeed, 0.01f, 1.0f,
-//                     "%.3f");
-//   ImGui::InputFloat("Color Interval", &m_colorInterval, 0.1f, 1.0f, "%.3f");
-//   ImGui::InputFloat("Height Interval", &m_heightInterval, 0.1f, 1.0f,
-//   "%.3f"); ImGui::SeparatorText("Info"); ImGui::Text("Obstacle Spawn counter:
-//   %.2f seconds", m_obstaclesInterval); ImGui::Text("Last Obstacle index:
-//   %.2d", m_index); ImGui::Text("Points: %.4d", m_points); ImGui::Text("Loses:
-//   %.4d", m_loses); ImGui::Text("TPS: %.1f",
-//   pain::Application::Get().getCurrentTPS()); ImGui::Text("Current closest
-//   Index %d", m_currentObsIndex); ImGui::InputDouble("Time Multiplier",
-//                      pain::Application::Get().getTimeMultiplier(),
-//                      100.0, 1.0,
-//                      "%.3f");
-//   if (*pain::Application::Get().getTimeMultiplier() < 0)
-//     *pain::Application::Get().getTimeMultiplier() = 1.0;
-//   if (ImGui::Button("Toogle Rendering")) {
-//     m_rendering = !m_rendering;
-//     if (m_rendering)
-//       pain::Application::Get().disableRendering();
-//     else
-//       pain::Application::Get().enableRendering();
-//   }
-//   if (ImGui::Button("Toogle auto time multiplier")) {
-//     bool *a = pain::Application::Get().getIsSimulation();
-//     *a = !(*a);
-//   }
-//   ImGui::Text("Auto Multiplier is %s",
-//               pain::Application::Get().getIsSimulation() ? "ON" : "OFF");
-//   ImGui::Text("Rendering is %s", m_rendering ? "ON" : "OFF");
-//   if (ImGui::Button("Toogle NEAT")) {
-//     m_toggleNEAT = !m_toggleNEAT;
-//   }
-//   ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
-//   ImGui::End();
-// }

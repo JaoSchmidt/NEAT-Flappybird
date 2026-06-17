@@ -10,17 +10,17 @@ reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
 
   reg::Entity entity = scene.createEntity();
   scene.createComponents(
-      entity, pain::Transform2dComponent{glm::vec2(DEFAULTXPOS, 0.0f)},
-      pain::Movement2dComponent{glm::vec2(0.f, 0.0f), 1.0f}, //
+      entity, pain::Transform2dComponent{glm::vec2(DEFAULTXPOS, 0.0F)},
+      pain::Movement2dComponent{glm::vec2(0.F, 0.0F), 1.0F}, //
       pain::MaterialComponent::create(m),                    //
       pain::NativeScriptComponent{},                         //
       pain::ParticleSprayComponent::create({
           .interval = pain::DeltaTime::oneSecond() / 8,
-          .randAngleFactor = 20.f,
+          .randAngleFactor = 20.F,
           .autoEmit = false,
           .capacity = 100,
       }),
-      pain::RotationComponent{315.f, glm::vec3(0.f, 1.f, 0.f)},          //
+      pain::RotationComponent{315.F, glm::vec3(0.F, 1.F, 0.F)},          //
       pain::SpriteComponent::create({.layer = pain::RenderLayer::Closer, //
                                      .shape = pain::RectShape{}}));      //
   pain::Scene::emplaceScript<PlayerController>(entity, scene, ce);
@@ -33,30 +33,28 @@ PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene,
 
 void PlayerController::onCreate() {
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
-  mc.m_rotationSpeed = 0.0f;
-  m_dampingFactor = 50.f;
-  m_emissionInterval = 0.02f;
+  mc.m_rotationSpeed = 0.0F;
+  m_dampingFactor = 50.F;
+  m_emissionInterval = 0.02F;
   pain::ParticleSprayComponent &psc =
       getComponent<pain::ParticleSprayComponent>();
   psc.lifeTime = pain::DeltaTime::oneMilliSecond() * 700;
-  psc.randSizeFactor = 1.f;
-  psc.sizeChangeSpeed = 0.15f;
+  psc.randSizeFactor = 1.F;
+  psc.sizeChangeSpeed = 0.15F;
 
-  m_customEditor.registerPanel("Player Controller", 1.f,
+  m_customEditor.registerPanel("Controller", 1.F,
                                painless::InterfaceMenu::SIDEBAR);
-  m_customEditor.addToPanel("Player Controller", 1, [this]() {
-    ImGui::Begin("Player Controller");
+  m_customEditor.addToPanel("Controller", [this]() {
     ImGui::Text("General Settings");
-    ImGui::InputFloat("Gravity", &m_gravity, 0.01f, 1.0f, "%.3f");
-    ImGui::InputFloat("Jump Impulse", &m_jumpImpulse, 0.1f, 1.0f, "%.3f");
-    ImGui::InputFloat("Damping Effect", &m_dampingFactor, 0.01f, 1.0f, "%.5f");
-    ImGui::InputFloat("Pseudo Velocity X", &m_pseudoVelocityX, 0.1f, 1.0f,
-                      "%.3f");
+    ImGui::InputFloat("Gravity", &m_gravity, 0.01F, 1.0F, "%.3F");
+    ImGui::InputFloat("Jump Impulse", &m_jumpImpulse, 0.1F, 1.0F, "%.3F");
+    ImGui::InputFloat("Damping Effect", &m_dampingFactor, 0.01F, 1.0F, "%.5F");
+    ImGui::InputFloat("Pseudo Velocity X", &m_pseudoVelocityX, 0.1F, 1.0F,
+                      "%.3F");
     ImGui::SeparatorText("Log");
     ImGui::Checkbox("Log Updates", &m_displayUpdates);
     if (ImGui::Button("Reset Components"))
       resetPosition();
-    ImGui::End();
   });
 }
 
@@ -79,7 +77,7 @@ void PlayerController::onRender(pain::RenderContext &renderers,
     if (m_timeSinceLastEmission >= m_emissionInterval) {
 
       const float rando =
-          static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f;
+          static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5F;
       const float randoAngle = rando * glm::radians(psc.randAngleFactor);
       // rotation is already rotated 90 degrees btw
       const glm::mat2 rotation =
@@ -89,10 +87,10 @@ void PlayerController::onRender(pain::RenderContext &renderers,
       pain::SprayParticle &p = psc.particles[psc.currentParticle];
       psc.next();
       p = {.offset = tc.m_position,
-           .normal = glm::vec2(rotation * rc.m_rotation * 0.05f),
+           .normal = glm::vec2(rotation * rc.m_rotation * 0.05F),
            .startTime = currentTime,
            .alive = true};
-      m_timeSinceLastEmission = 0.0f; // Reset the timer
+      m_timeSinceLastEmission = 0.0F; // Reset the timer
     }
   }
 }
@@ -103,10 +101,10 @@ void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
 
-  if (m_jumpForce > 0.f)
+  if (m_jumpForce > 0.F)
     m_jumpForce = m_jumpForce - deltaTimeSec * m_dampingFactor;
   else
-    m_jumpForce = 0.f;
+    m_jumpForce = 0.F;
 
   m_timeSinceLastEmission += deltaTimeSec;
   const Uint8 *state = SDL_GetKeyboardState(NULL);
@@ -116,12 +114,12 @@ void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
   }
 
   float acc;
-  if (tc.m_position.y > 1.f) {
-    tc.m_position.y = 1.f;
-    acc = m_gravity * 10.f;
-  } else if (tc.m_position.y < -1.f) {
-    tc.m_position.y = -1.f;
-    acc = m_jumpForce * 10.f;
+  if (tc.m_position.y > 1.F) {
+    tc.m_position.y = 1.F;
+    acc = m_gravity * 10.F;
+  } else if (tc.m_position.y < -1.F) {
+    tc.m_position.y = -1.F;
+    acc = m_jumpForce * 10.F;
   } else {
     acc = m_gravity + m_jumpForce;
   }
@@ -148,12 +146,12 @@ void PlayerController::resetPosition() {
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
   pain::RotationComponent &rc = getComponent<pain::RotationComponent>();
 
-  mc.m_rotationSpeed = 0.0f;
-  m_pseudoVelocityX = 1.f;
-  tc.m_position = {-0.8f, 0.f};
-  mc.m_velocity = {0.f, 1.f};
-  rc.m_rotation = {0.f, 1.f, 0.f};
-  rc.m_rotationRadians = 315.f;
+  mc.m_rotationSpeed = 0.0F;
+  m_pseudoVelocityX = 1.F;
+  tc.m_position = {-0.8F, 0.F};
+  mc.m_velocity = {0.F, 1.F};
+  rc.m_rotation = {0.F, 1.F, 0.F};
+  rc.m_rotationRadians = 315.F;
 }
 
 // void PlayerController::onDestroy() { delete m_pIG; }

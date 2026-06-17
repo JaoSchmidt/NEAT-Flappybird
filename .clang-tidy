@@ -12,10 +12,13 @@ Checks: >
   -readability-math-missing-parentheses,
   -readability-isolate-declaration,
   -readability-implicit-bool-conversion,
+  -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-pro-type-union-access
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic
 WarningsAsErrors: >
   clang-analyzer-*,
   cppcoreguidelines-special-member-functions,

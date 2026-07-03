@@ -4,12 +4,7 @@
 
 std::tuple<PlayerController *, pain::Material &,
            std::vector<ObstaclesController *>>
-FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
-                         painless::CustomEditor &editor) {
-  const int w = 1024;
-  const int h = 768;
-
-  pain::Dummy2dCamera::createBasicCamera(scene, w, h, 1.F);
+FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
   pain::Renderers &renderers = app.getRenderers();
   pain::Shader &obstacleShader = renderers.m_materialManager.getDefaultShader(
       pain::DefaultShader::SimpleTriangles);
@@ -37,7 +32,7 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
                                  .shader = obstacleShader,
                                  .name = "Obstacle Material"} //
   );
-  reg::Entity player = createPlayer(scene, playerMaterial, editor);
+  reg::Entity player = createPlayer(scene, playerMaterial);
   PlayerController *pc = &scene.getNativeScript<PlayerController>(player);
 
   std::vector<ObstaclesController *> obstacles;
@@ -50,21 +45,24 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
   return {pc, obstacleMaterial, std::move(obstacles)};
 }
 
-reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app,
-                               painless::CustomEditor &editor) {
-  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app, editor);
+reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app) {
+  const int w = 1024;
+  const int h = 768;
+
+  pain::Dummy2dCamera::createBasicCamera(scene, w, h, 1.f);
+
+  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app);
   pain::Scene::emplaceScript<FlappyGame>(scene.getEntity(), scene, pc,
                                          obstacleMaterial, std::move(obstacles),
-                                         editor, app);
+                                         app);
   return scene.getEntity();
 }
 FlappyGame::FlappyGame(reg::Entity entity, pain::Scene &scene,
                        PlayerController *pc, pain::Material &om,
                        std::vector<ObstaclesController *> obc,
-                       painless::CustomEditor &e, pain::Application &a)
+                       pain::Application &a)
     : pain::WorldObject(entity, scene), m_playerController(pc),
-      m_obstacles(std::move(obc)), m_obstaclesMaterial(om), m_customEditor(e),
-      m_app(a) {};
+      m_obstacles(std::move(obc)), m_obstaclesMaterial(om), m_app(a) {};
 
 void FlappyGame::changeObstaclesColors(pain::Color color) {
   m_obstaclesMaterial.m_color = color;
@@ -72,7 +70,7 @@ void FlappyGame::changeObstaclesColors(pain::Color color) {
 
 void FlappyGame::onCreate() {
 
-  m_panelID = m_customEditor.addToPanel(
+  m_panelID = painless::customPanel::addToPanel(
       "Controller",
       [this]() { //
         ImGui::Text("Obstacles Parameters Settings");
@@ -107,6 +105,23 @@ void FlappyGame::onCreate() {
       2);
 }
 
+void FlappyGame::onRender(pain::RenderContext &_, bool isMinimized,
+                          pain::DeltaTime currentTime) {
+
+  if (!isMinimized) {
+    m_waveColor =
+        fmod(m_waveColor + m_colorInterval * currentTime.getSecondsf(), 360.F);
+
+    const auto waveColorRadians = glm::radians(m_waveColor);
+    // change obstacle color
+    pain::Color color(125 + sin(waveColorRadians) * 124,               // red
+                      76.5 + sin(waveColorRadians + M_PI / 4) * 76.5,  // green
+                      102 + sin(waveColorRadians + M_PI * 3 / 4) * 102 // blue
+    );
+    m_obstaclesMaterial.m_color = color;
+  }
+}
+
 void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
   if (m_isRunning) {
     // Overall game
@@ -114,15 +129,6 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
     // 2. check if player hits obstacles
     // 3. if hits, remove one life
     // 4. if 0 lifes, score menu
-
-    m_waveColor =
-        fmod(m_waveColor + m_colorInterval * deltaTime.getSecondsf(), 360.F);
-    const auto waveColorRadians = glm::radians(m_waveColor);
-    // change obstacle color
-    pain::Color color(125 + sin(waveColorRadians) * 124,               // red
-                      76.5 + sin(waveColorRadians + M_PI / 4) * 76.5,  // green
-                      102 + sin(waveColorRadians + M_PI * 3 / 4) * 102 // blue
-    );
 
     // spawn obstacles
     m_obstaclesInterval -= m_intervalTime * deltaTime.getSecondsf();
@@ -137,7 +143,6 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
       reviveObstacle(m_index, randAngle, false);
     }
 
-    m_obstaclesMaterial.m_color = color;
     for (char i = 0; i < s_numberOfObstacles; i++) {
       if (checkIntersection(*m_obstacles[i]))
         afterLosing();

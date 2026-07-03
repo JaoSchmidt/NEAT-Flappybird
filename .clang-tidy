@@ -12,6 +12,7 @@ Checks: >
   -readability-math-missing-parentheses,
   -readability-isolate-declaration,
   -readability-implicit-bool-conversion,
+  -readability-uppercase-literal-suffix,
   -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-avoid-magic-numbers,

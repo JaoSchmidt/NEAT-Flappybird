@@ -1,5 +1,6 @@
 #pragma once
 #include "FlappyGame.h"
+#include "NEAT/GraphRender.h"
 #include "NEAT/Individuals.h"
 #include "NEAT/NN.h"
 #include <vector>
@@ -12,17 +13,18 @@ struct SpeciesFit {
 class Population : public FlappyGame {
 
 public:
-  reg::Entity static create(pain::Scene &scene, pain::Application &app,
-                            painless::CustomEditor &editor);
+  reg::Entity static create(pain::Scene &scene, pain::Application &app);
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTime);
 
   Population(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
              pain::Material &om, std::vector<ObstaclesController *> obc,
-             painless::CustomEditor &e, pain::Application &a);
+             pain::Application &a, reg::Entity graphRender);
 
   NONCOPYABLE(Population)
   NONMOVABLE(Population)
+  ~Population() = default;
+
 protected:
   pain::Scene &worldScene; // To mess with time multipliers
   // forced delta time equal 1/60
@@ -54,13 +56,8 @@ protected:
   int m_currentObsIndex = 0; // current obstacle index
   int m_currentIndIndex = 0;
   int getClosestObstacle(float playerPosX);
+  Individual *m_bestIndividual = nullptr;
+  reg::Entity m_graphRender;
 
   void afterLosing();
-
-public:
-  ~Population() {
-    delete m_playerY;
-    delete m_playerVy;
-    delete m_playerRot;
-  }
 };

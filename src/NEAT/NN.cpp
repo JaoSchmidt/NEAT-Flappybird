@@ -99,7 +99,7 @@ void Genome::addConnectionAndSort(ConnectionGene connGene, int numInputs) {
     return;
   }
 
-  m_links.push_back(std::move(connGene));
+  m_links.push_back(connGene);
 
   topologySortNN(numInputs);
 }

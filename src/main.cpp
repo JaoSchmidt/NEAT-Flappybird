@@ -1,11 +1,16 @@
 #include <pain.h>
 #include <painless.h>
 
+#include "Assets/ManagerTexture.h"
+#include "CoreRender/SpriteComponent.h"
 #include "NEAT/Population.h"
+#include "Others/MousePointer.h"
+#include "Physics/MovementComponent.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
 pain::Application *pain::createApplication() {
+  PLOG_I("Reading config files");
   // Retrieve the context the player will alter when using the launcher
   IniConfig ini;
   ini.readAndUpdate();
@@ -13,6 +18,7 @@ pain::Application *pain::createApplication() {
   // Retrieve the app context defined inside "resources/InternalConfig.ini"
   InternalConfig internalIni;
   internalIni.readAndUpdate(ini.assetsPath.value);
+  PLOG_I("Configuration files read and extracted");
 
   // Create the application + OpenGL + Event contexts
   Application *app = Application::createApplication( //
@@ -33,8 +39,7 @@ pain::Application *pain::createApplication() {
   app->getRenderers().m_renderer2d.setCellGridSize(internalIni.gridSize.get());
 
   pain::Scene &scene = app->getWorldScene();
-  scene.createComponents(scene.getEntity(), pain::NativeScriptComponent{},
-                         pain::LuaScriptComponent::create(scene.getEntity()));
+  scene.createComponents(scene.getEntity(), pain::NativeScriptComponent{});
 
   pain::BasicScene::syncSystems(scene);
 
@@ -50,11 +55,16 @@ pain::Application *pain::createApplication() {
   // (Optional) Define a small native script for the world scene
   // that will be executed on as root script. Must have added
   // System::NativeScript
-  FlappyGame::create( //
-      scene,          //
-      *app,
-      editor //
-  );
+  // Population::create( //
+  //     scene,          //
+  //     *app);
+
+  const int w = 1024;
+  const int h = 768;
+  const float zoom = 3.f;
+  reg::Entity cam = pain::Dummy2dCamera::create(scene, w, h, zoom);
+  MousePointer::create(scene, app->getRenderers(), cam);
+
   return app;
 }
 
@@ -72,10 +82,12 @@ int main() {
   EndGameFlags flags;
   flags.restartGame = !isSettingsGuiNeeded;
   if (isSettingsGuiNeeded) {
+    PLOG_I("Initializing Launcher");
     pain::Application *app = painless::createLauncher();
     flags = pain::Pain::runAndDeleteApplication(app);
   }
   while (flags.restartGame) {
+    PLOG_I("Initializing Application");
     pain::Application *app = pain::createApplication();
     flags = pain::Pain::runAndDeleteApplication(app);
   }

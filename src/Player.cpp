@@ -5,8 +5,7 @@
 #include <cstdlib>
 #include <unistd.h>
 
-reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
-                         painless::CustomEditor &ce) {
+reg::Entity createPlayer(pain::Scene &scene, pain::Material &m) {
 
   reg::Entity entity = scene.createEntity();
   scene.createComponents(
@@ -20,16 +19,15 @@ reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
           .autoEmit = false,
           .capacity = 100,
       }),
-      pain::RotationComponent{315.F, glm::vec3(0.F, 1.F, 0.F)},          //
-      pain::SpriteComponent::create({.layer = pain::RenderLayer::Closer, //
-                                     .shape = pain::RectShape{}}));      //
-  pain::Scene::emplaceScript<PlayerController>(entity, scene, ce);
+      pain::RotationComponent{315.F, glm::vec3(0.F, 1.F, 0.F)},     //
+      pain::SpriteComponent::create({.layer = pain::RenderLayer::E, //
+                                     .shape = pain::RectShape{}})); //
+  pain::Scene::emplaceScript<PlayerController>(entity, scene);
   return entity;
 };
 
-PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene,
-                                   painless::CustomEditor &ce)
-    : pain::WorldObject(entity, scene), m_customEditor(ce) {}
+PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene)
+    : pain::WorldObject(entity, scene) {}
 
 void PlayerController::onCreate() {
   pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
@@ -42,9 +40,9 @@ void PlayerController::onCreate() {
   psc.randSizeFactor = 1.F;
   psc.sizeChangeSpeed = 0.15F;
 
-  m_customEditor.registerPanel("Controller", 1.F,
-                               painless::InterfaceMenu::SIDEBAR);
-  m_customEditor.addToPanel("Controller", [this]() {
+  painless::customPanel::registerPanel("Controller", 1.F,
+                                       painless::InterfaceMenu::SIDEBAR);
+  painless::customPanel::addToPanel("Controller", [this]() {
     ImGui::Text("General Settings");
     ImGui::InputFloat("Gravity", &m_gravity, 0.01F, 1.0F, "%.3F");
     ImGui::InputFloat("Jump Impulse", &m_jumpImpulse, 0.1F, 1.0F, "%.3F");

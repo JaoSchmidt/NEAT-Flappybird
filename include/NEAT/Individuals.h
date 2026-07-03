@@ -26,17 +26,16 @@ struct NeatConfig {
   double m_probRmConn;
 };
 
-class Individual
-{
+class Individual {
 public:
   int m_speciesID = -1;
   double m_fitness = 0.0;
   Individual(Genome genome, const NeatConfig &config, const pain::RNG &rng)
-      : m_config{config}, m_rng{rng}, m_genome(std::move(genome)){};
+      : m_config{config}, m_rng{rng}, m_genome(std::move(genome)) {};
   Individual(Genome genome, const NeatConfig &config, const pain::RNG &rng,
              int speciesID)
       : m_speciesID(speciesID), m_config{config}, m_rng{rng},
-        m_genome(std::move(genome)){};
+        m_genome(std::move(genome)) {};
 
   bool fit(const std::vector<double> &inputs);
   double clamp(double x) const // or "clip" is also a possible name
@@ -44,8 +43,7 @@ public:
     return std::min(m_config.m_max, std::max(m_config.m_min, x));
   }
   double replaceValue() const { return clamp(m_rng.gaussian<double>()); }
-  double mutateDelta(double value) const
-  {
+  double mutateDelta(double value) const {
     double delta = clamp(m_rng.gaussian<double>(0.0, m_config.m_mutationPower));
     return clamp(value + delta);
   }
@@ -62,18 +60,15 @@ public:
   double calculateDelta(const Individual &other) const;
   inline void topologySort() { m_genome.topologySortNN(m_config.m_numInputs); };
 
-  Individual clone() const
-  {
+  Individual clone() const {
     return Individual(m_genome, m_config, m_rng, m_speciesID);
   }
   ~Individual() = default;
   Individual(Individual &&o)
       : m_speciesID(o.m_speciesID), m_fitness(o.m_fitness),
-        m_config(o.m_config), m_rng(o.m_rng), m_genome(std::move(o.m_genome))
-  {
-  }
-  Individual &operator=(Individual &&o)
-  {
+        m_config(o.m_config), m_rng(o.m_rng),
+        m_genome(std::move(o.m_genome)) {};
+  Individual &operator=(Individual &&o) {
     if (this != &o) {
       m_speciesID = o.m_speciesID;      // Move m_speciesID
       m_fitness = o.m_fitness;          // Move m_fitness
@@ -82,6 +77,8 @@ public:
     return *this;
   }
   NONCOPYABLE(Individual)
+
+  const Genome &getGenome() const { return m_genome; }
 
 private:
   const NeatConfig &m_config;

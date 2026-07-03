@@ -4,13 +4,12 @@
 #include <painless.h>
 #define DEFAULTXPOS -0.8f
 
-reg::Entity createPlayer(pain::Scene &scene, pain::Material &m,
-                         painless::CustomEditor &customEditor);
+reg::Entity createPlayer(pain::Scene &scene, pain::Material &m);
 
 struct PlayerController : public pain::WorldObject {
 public:
-  PlayerController(reg::Entity entity, pain::Scene &scene,
-                   painless::CustomEditor &ce);
+  PlayerController(reg::Entity entity, pain::Scene &scene);
+
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTimeSec);
   void onRender(pain::RenderContext &renderer, bool isMinimized,
@@ -39,7 +38,4 @@ private:
   // particle emission
   float m_timeSinceLastEmission = 0.f;
   float m_emissionInterval = 0.02f;
-  // NEAT automation
-
-  painless::CustomEditor &m_customEditor;
 };

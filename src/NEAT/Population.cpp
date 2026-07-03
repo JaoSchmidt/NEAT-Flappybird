@@ -1,30 +1,44 @@
 #include "NEAT/Population.h"
 #include "CoreFiles/LogWrapper.h"
+#include "ECS/Components/NativeScript.h"
+#include "Others/MousePointer.h"
 #include <pain.h>
 #include <utility>
 #include <vector>
 
-reg::Entity Population::create(pain::Scene &scene, pain::Application &app,
-                               painless::CustomEditor &ce) {
-  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app, ce);
+reg::Entity Population::create(pain::Scene &scene, pain::Application &app) {
+
+  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app);
+
   reg::Entity game = scene.createEntity();
   scene.createComponents(game, pain::NativeScriptComponent{});
-  pain::Scene::emplaceScript<Population>(game, scene, pc, obstacleMaterial,
-                                         std::move(obstacles), ce, app);
+
+  const int w = 1024;
+  const int h = 768;
+  const float zoom = 1.f;
+  const glm::vec2 center{-1.f, -1.f};
+  pain::Dummy2dCamera::createBasicCamera(scene, w, h, zoom);
+
+  // reg::Entity graphRender = GraphRender::create(scene, app.getRenderers());
+  // MousePointer::create(scene, app.getRenderers(), graphRender);
+  reg::Entity graphRender = reg::Entity{-1};
+  pain::Scene::emplaceScript<Population>(scene.getEntity(), scene, pc,
+                                         obstacleMaterial, std::move(obstacles),
+                                         app, graphRender);
   return game;
 }
 
 Population::Population(reg::Entity entity, pain::Scene &scene,
                        PlayerController *pc, pain::Material &om,
                        std::vector<ObstaclesController *> obc,
-                       painless::CustomEditor &e, pain::Application &a)
-    : FlappyGame(entity, scene, pc, om, std::move(obc), e, a),
-      worldScene(scene) {};
+                       pain::Application &a, reg::Entity graphRender)
+    : FlappyGame(entity, scene, pc, om, std::move(obc), a), worldScene(scene),
+      m_graphRender(graphRender) {};
 
 void Population::onCreate() {
   FlappyGame::onCreate();
 
-  m_customEditor.addToPanel("Controller", [this]() {
+  painless::customPanel::addToPanel("Controller", [this]() {
     if (ImGui::Button("Toogle auto time multiplier"))
       m_app.toggleSimulation();
     ImGui::Text("Auto Multiplier is %s", m_app.isSimulation() ? "ON" : "OFF");
@@ -32,7 +46,6 @@ void Population::onCreate() {
       m_toggleNEAT = !m_toggleNEAT;
     }
     ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
-    ImGui::End();
   });
 
   m_points = 0;
@@ -70,8 +83,9 @@ void Population::onCreate() {
     m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng, 0);
   }
   m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
-
   m_currentObsIndex = m_index;
+  // worldScene.getNativeScript<GraphRender>(m_graphRender)
+  //     .generateGraph(worldScene, m_individuals[0].getGenome().m_links);
 
   pain::Transform2dComponent &ptc =
       m_playerController->getComponent<pain::Transform2dComponent>();
@@ -100,6 +114,7 @@ int Population::getClosestObstacle(float playerPos) {
 }
 
 void Population::onUpdate(pain::DeltaTime deltaTime) {
+
   // spawn obstacles
   m_obstaclesInterval -= m_intervalTime * deltaTime.getSeconds();
   if (m_obstaclesInterval <= 0) {
@@ -123,14 +138,13 @@ void Population::onUpdate(pain::DeltaTime deltaTime) {
     ObstaclesController &obstacle = *m_obstacles.at(i);
     const auto &tc = obstacle.getComponent<pain::Transform2dComponent>();
     // no extra life for now
-    if (tc.m_position.x < -0.2f && checkIntersection(obstacle)) {
+    if (tc.m_position.x < -0.2F && checkIntersection(obstacle)) {
       afterLosing();
       return;
     }
     if (m_points > 300) {
-      PLOG_E("time multiplier requested still WIP");
-      // *(pain::Application::Get().getTimeMultiplier()) = 1.0;
-      // pain::Application::Get().enableRendering();
+      m_app.setTimeMultiplier(1.);
+      m_app.setRendereing(true);
     }
   }
 
@@ -142,13 +156,8 @@ void Population::onUpdate(pain::DeltaTime deltaTime) {
   //   m_currentObsIndex = getClosestObstacle(DEFAULTXPOS);
 
   // calculate space pressed probability
-  if (m_individuals[m_currentIndIndex].fit(
-          {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot})) {
-    // SDL_PushEvent not working
-    m_playerController->m_automaticJump = true;
-  } else {
-    m_playerController->m_automaticJump = false;
-  }
+  m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
+      {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot});
 }
 
 void Population::afterLosing() {
@@ -180,7 +189,7 @@ void Population::speciateFitness() {
   }
 
   // Calculate shared fitness for each individual
-  for (auto &individual : m_individuals) {
+  for (Individual &individual : m_individuals) {
     int speciesSize = speciesCount[individual.m_speciesID];
     individual.m_fitness /= speciesSize; // Apply fitness sharing
     m_speciesInfo[individual.m_speciesID].avereageFitness +=
@@ -188,7 +197,7 @@ void Population::speciateFitness() {
   }
 
   // calculate stacked area graphic
-  for (unsigned i = 0; i < m_speciesInfo.size(); i++) {
+  for (int i = 0; i < static_cast<int>(m_speciesInfo.size()); i++) {
     if (m_speciesInfo[i].count != 0)
       m_speciesInfo[i].avereageFitness /= m_speciesInfo[i].count;
   }
@@ -198,6 +207,8 @@ void Population::classifyAllSpecies() {
 
   for (auto &individual : m_individuals) {
     bool foundSpecies = false;
+    if (individual.m_fitness > m_bestIndividual->m_fitness)
+      m_bestIndividual = &individual;
 
     // Attempt to classify into an existing species
     for (const auto &[speciesID, representative] : m_speciesRepresentatives) {
@@ -218,11 +229,13 @@ void Population::classifyAllSpecies() {
 
     // If no compatible species was found, create a new one
     if (!foundSpecies) {
-      int nextSpeciesID = m_speciesRepresentatives.size();
+      int nextSpeciesID = static_cast<int>(m_speciesRepresentatives.size());
       individual.m_speciesID = nextSpeciesID;
       m_speciesRepresentatives.emplace(nextSpeciesID, individual.clone());
     }
   }
+  // GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
+  // gr.generateGraph(worldScene, m_bestIndividual->getGenome().m_links);
 }
 
 std::vector<Individual>

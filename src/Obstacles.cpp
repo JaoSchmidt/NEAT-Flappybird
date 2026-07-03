@@ -6,11 +6,11 @@ reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
   reg::Entity e = scene.createEntity();
   scene.createComponents(
       e, //
-      pain::Transform2dComponent(glm::vec3(2.0f, -0.5f, 0.f)),
+      pain::Transform2dComponent(glm::vec3(2.0F, -0.5F, 0.F)),
       pain::Movement2dComponent(),
       pain::SpriteComponent::create(
-          {.layer = pain::RenderLayer::Default,
-           .shape = pain::TriangleShape{0.8f, 2.00f}}),
+          {.layer = pain::RenderLayer::B,
+           .shape = pain::TriangleShape{0.8F, 2.00F}}),
       pain::MaterialComponent::create(m), //
       pain::NativeScriptComponent{});
 
@@ -38,9 +38,9 @@ void ObstaclesController::revive(float obstacleSpeed, float height,
   // tgc.m_color = {0.5f, 0.5f, 0.5f, 1.0f};
   m_isUpsideDown = upsideDown;
   if (m_isUpsideDown)
-    ts = {0.8f, -2.f};
+    ts = {0.8F, -2.F};
   else
-    ts = {0.8f, 2.f};
+    ts = {0.8F, 2.F};
 
   mc.m_velocity.x = obstacleSpeed;
   // WARN: This value "1.5f" to put all obstacles hidden on the right of the

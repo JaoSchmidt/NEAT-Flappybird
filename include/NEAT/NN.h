@@ -14,12 +14,13 @@ struct InnovationStatic {
   int m_OutNodeId;
 
   InnovationStatic(int innovation, int inNodeId, int outNodeId)
-      : m_innovation(innovation), m_InNodeId(inNodeId), m_OutNodeId(outNodeId) {
-  }
+      : m_innovation(innovation), m_InNodeId(inNodeId),
+        m_OutNodeId(outNodeId) {};
   InnovationStatic(InnovationStatic &&o) = default;
   InnovationStatic &operator=(InnovationStatic &&o) = default;
 
   COPYABLE(InnovationStatic);
+  ~InnovationStatic() = default;
 };
 
 struct ConnectionGene {
@@ -32,7 +33,7 @@ struct ConnectionGene {
   ConnectionGene(int inputNodeId, int outputNodeId, double weight, bool enable,
                  int innovation)
       : m_InNodeId{inputNodeId}, m_OutNodeId{outputNodeId},
-        m_innovation{innovation}, m_enable{enable}, m_weight{weight} {}
+        m_innovation{innovation}, m_enable{enable}, m_weight{weight} {};
 
   ConnectionGene(ConnectionGene &&o) = default;
   ConnectionGene &operator=(ConnectionGene &&o) = default;
@@ -41,7 +42,7 @@ struct ConnectionGene {
     return ConnectionGene(m_InNodeId, m_OutNodeId, m_weight, m_enable,
                           m_innovation);
   }
-
+  ~ConnectionGene() = default;
   COPYABLE(ConnectionGene)
 };
 
@@ -51,12 +52,13 @@ struct NodeGene {
   double m_bias;
   ActivationFunction m_activationFunction;
 
-  NodeGene(int nodeId, double bias) : m_neuron_id{nodeId}, m_bias{bias} {}
+  NodeGene(int nodeId, double bias) : m_neuron_id{nodeId}, m_bias{bias} {};
   NodeGene(NodeGene &&o) = default;
   NodeGene &operator=(NodeGene &&o) = default;
   COPYABLE(NodeGene)
   // prefered way to copy
   NodeGene clone() const { return NodeGene(m_neuron_id, m_bias); };
+  ~NodeGene() = default;
 };
 
 // all genes

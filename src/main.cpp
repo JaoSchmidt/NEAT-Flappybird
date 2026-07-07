@@ -55,15 +55,14 @@ pain::Application *pain::createApplication() {
   // (Optional) Define a small native script for the world scene
   // that will be executed on as root script. Must have added
   // System::NativeScript
-  // Population::create( //
-  //     scene,          //
-  //     *app);
+  Population::create( //
+      scene,          //
+      *app);
 
-  const int w = 1024;
-  const int h = 768;
-  const float zoom = 3.f;
-  reg::Entity cam = pain::Dummy2dCamera::create(scene, w, h, zoom);
-  MousePointer::create(scene, app->getRenderers(), cam);
+  // const float zoom = 3.f;
+  // reg::Entity cam = pain::Dummy2dCamera::createMovingCamera(
+  //     scene, ini.defaultWidth.get(), ini.defaultHeight.get(), zoom);
+  // MousePointer::create(scene, app->getRenderers(), cam);
 
   return app;
 }

@@ -49,7 +49,7 @@ reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app) {
   const int w = 1024;
   const int h = 768;
 
-  pain::Dummy2dCamera::createBasicCamera(scene, w, h, 1.f);
+  pain::Dummy2dCamera::createStaticCamera(scene, w, h, 1.f);
 
   auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app);
   pain::Scene::emplaceScript<FlappyGame>(scene.getEntity(), scene, pc,

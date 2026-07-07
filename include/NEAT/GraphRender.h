@@ -10,12 +10,14 @@ class GraphRender : public pain::WorldObject {
   };
 
 public:
-  reg::Entity static create(pain::Scene &scene, pain::Renderers &renderers);
+  reg::Entity static create(pain::Scene &scene, pain::Renderers &renderers,
+                            reg::Entity camEntity);
 
   void onUpdate(pain::DeltaTime deltaTime);
   void onEvent(const SDL_Event &event);
   GraphRender(reg::Entity entity, pain::Scene &scene,
-              pain::Material &nodeMaterial, pain::Material &lineMaterial);
+              pain::Material &nodeMaterial, pain::Material &lineMaterial,
+              reg::Entity camEntity);
 
   /**
    * Generates the visual graph representing the genome neural network of the
@@ -29,6 +31,7 @@ private:
   std::map<const glm::vec2 *, const glm::vec2 *> m_lineCoordMap;
   std::vector<reg::Entity> m_circles;
   std::vector<reg::Entity> m_lines;
+  glm::vec2 m_centerCache;
 
   // graph
   pain::Material &m_nodeMaterial;
@@ -42,5 +45,8 @@ private:
   glm::vec2 m_dragOffset{};
   glm::vec2 m_lastMouseWorld{};
 
+  reg::Entity m_camEntity;
+
   static constexpr float RESIZE_MARGIN = 0.05f;
+  glm::vec2 screenToWorld(int x, int y);
 };

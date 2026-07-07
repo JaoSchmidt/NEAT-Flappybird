@@ -1,11 +1,13 @@
 #include "NEAT/GraphRender.h"
 #include "CoreRender/Buffers/Material.h"
 #include "ECS/Registry/Entity.h"
+#include "imgui.h"
+#include "imgui_internal.h"
 #include <pain.h>
 
 constexpr float SPACE_BETWEEN_LAYERS = 0.3F;
 constexpr float SPACE_BETWEEN_NODES = 0.125F;
-constexpr float LINK_THICKNESS = 0.01F;
+constexpr float MAX_LINK_THICKNESS = 0.02F;
 constexpr float NODE_DIAMETER = 0.1F;
 
 // score, deaths, generation, species
@@ -23,10 +25,8 @@ GraphRender::Layer::Layer(int layer, std::vector<int> nodes)
   }
 }
 
-reg::Entity GraphRender::create(pain::Scene &scene,
-                                pain::Renderers &renderers) {
-  const int w = 1024;
-  const int h = 768;
+reg::Entity GraphRender::create(pain::Scene &scene, pain::Renderers &renderers,
+                                reg::Entity camEntity) {
   const float zoom = 1.f;
   const glm::vec2 center{-1.f, -1.f};
 
@@ -39,7 +39,7 @@ reg::Entity GraphRender::create(pain::Scene &scene,
   pain::Material &nodeMaterial = renderers.m_materialManager.createMaterial(
       "GraphNodes", //
       pain::MaterialCreationInfo{
-          .color = pain::Colors::SkyBlue,
+          .color = pain::Colors::FullWhite,
           .params = pain::ParamSimplest{},
           .shader = nodeShader,
       } //
@@ -48,7 +48,7 @@ reg::Entity GraphRender::create(pain::Scene &scene,
       renderers.m_materialManager.createMaterial(
           "GraphBackground", //
           pain::MaterialCreationInfo{
-              .color = pain::Colors::Brown,
+              .color = pain::Colors::TransparentWhite,
               .params = pain::ParamSimplest{},
               .shader = renderers.m_materialManager.getDefaultShader(
                   pain::DefaultShader::Texture),
@@ -63,36 +63,48 @@ reg::Entity GraphRender::create(pain::Scene &scene,
       } //
   );
 
-  scene.createComponents(
-      entity, pain::Transform2dComponent{}, pain::NativeScriptComponent{},
-      pain::MaterialComponent::create(backGroundMaterial),
-      pain::SpriteComponent::create({
-          .layer = pain::RenderLayer::C,
-          .shape = pain::RectShape({2.f, 1.f}),
-      }),
-      Component::OrthoCamera::create(true, w, h, zoom, entity) //
-  );                                                           //
+  scene.createComponents(entity, pain::Transform2dComponent{},
+                         pain::NativeScriptComponent{},
+                         pain::MaterialComponent::create(backGroundMaterial),
+                         pain::SpriteComponent::create({
+                             .layer = pain::RenderLayer::C,
+                             .shape = pain::RectShape({2.f, 1.f}),
+                         })); //
   //
   pain::Scene::emplaceScript<GraphRender>(entity, scene, nodeMaterial,
-                                          lineMaterial);
+                                          lineMaterial, camEntity);
   return entity;
 }
 
-void GraphRender::onEvent(const SDL_Event &event) {
-  const pain::SpriteComponent &sprite = getComponent<pain::SpriteComponent>();
-  auto [transform, camera] =
-      getComponents<pain::Transform2dComponent, cmp::OrthoCamera>();
+glm::vec2 GraphRender::screenToWorld(int x, int y) {
+  int adjX = x, adjY = y;
 
-  glm::vec2 mouse =
-      camera.screenToWorld(event.button.x, event.button.y, transform);
-  PLOG_I("Mouse to world = ({},{})", TP_VEC2(mouse));
-  PLOG_E("Mouse SDL = ({},{})", TP_VEC2(event.button));
+  if (ImGui::GetCurrentContext() != nullptr) {
+    ImGuiWindow *viewportWindow = ImGui::FindWindowByName("Viewport");
+    if (viewportWindow != nullptr) {
+      ImVec2 mainPos = ImGui::GetMainViewport()->Pos;
+      ImVec2 contentMin = viewportWindow->ContentRegionRect.Min;
+      float offsetX = contentMin.x - mainPos.x;
+      float offsetY = contentMin.y - mainPos.y;
+      adjX = x - static_cast<int>(offsetX);
+      adjY = y - static_cast<int>(offsetY);
+    }
+  }
+
+  const auto &[camCC, camTC] =
+      getComponents<cmp::OrthoCamera, pain::Transform2dComponent>(m_camEntity);
+  return camCC.screenToWorld(adjX, adjY, camTC);
+}
+
+void GraphRender::onEvent(const SDL_Event &event) {
   switch (event.type) {
   case SDL_MOUSEBUTTONDOWN: {
     if (event.button.button != SDL_BUTTON_LEFT)
       break;
+    auto [sprite, transform] =
+        getComponents<pain::SpriteComponent, pain::Transform2dComponent>();
+    glm::vec2 mouse = screenToWorld(event.button.x, event.button.y);
     const pain::RectShape &rect = std::get<pain::RectShape>(sprite.m_shape);
-    PLOG_I("Button down");
 
     glm::vec2 half = rect.size * 0.5f;
 
@@ -101,27 +113,45 @@ void GraphRender::onEvent(const SDL_Event &event) {
     // if outside, break
     if (mouse.x < min.x || mouse.x > max.x || mouse.y < min.y ||
         mouse.y > max.y) {
-      PLOG_I("Mouse = ({},{}) and bottom-left = ({},{}), top-right = ({},{})",
-             TP_VEC2(mouse), min.x, min.y, max.x, max.y);
       break;
     }
-
+    m_dragOffset = mouse - transform.m_position;
     m_dragging = true;
-    PLOG_I("m_dragOffset = ({},{})", TP_VEC2(m_dragOffset));
     break;
   }
 
   case SDL_MOUSEBUTTONUP: {
     if (event.button.button == SDL_BUTTON_LEFT)
       m_dragging = false;
+    const glm::vec2 &center =
+        getComponent<pain::Transform2dComponent>().m_position;
+    for (int i = 0; i < static_cast<int>(m_circles.size()); i++) {
+      pain::Transform2dComponent &tc =
+          getComponent<pain::Transform2dComponent>(m_circles[i]);
+      tc.m_position -= m_centerCache;
+      tc.m_position += center;
+    }
+    for (int i = 0; i < m_numEdges; i++) {
+      auto [tc, sc] =
+          getComponents<pain::Transform2dComponent, pain::SpriteComponent>(
+              m_lines[i]);
+      tc.m_position -= m_centerCache;
+      tc.m_position += center;
+      pain::LineShape &line = std::get<pain::LineShape>(sc.m_shape);
+      line.destination -= m_centerCache;
+      line.destination += center;
+    }
+    m_centerCache = center;
     break;
   }
 
   case SDL_MOUSEMOTION: {
-    glm::vec2 mouse =
-        camera.screenToWorld(event.motion.x, event.motion.y, transform);
+    glm::vec2 mouse = screenToWorld(event.motion.x, event.motion.y);
+    pain::Transform2dComponent &transform =
+        getComponent<pain::Transform2dComponent>();
+
     if (m_dragging) {
-      transform.m_position = mouse;
+      transform.m_position = mouse - m_dragOffset;
     }
     break;
   }
@@ -147,9 +177,9 @@ void GraphRender::onUpdate(pain::DeltaTime _) {
 
 GraphRender::GraphRender(reg::Entity entity, pain::Scene &scene,
                          pain::Material &nodeMaterial,
-                         pain::Material &lineMaterial)
+                         pain::Material &lineMaterial, reg::Entity camEntity)
     : pain::WorldObject(entity, scene), m_nodeMaterial(nodeMaterial),
-      m_lineMaterial(lineMaterial) {};
+      m_lineMaterial(lineMaterial), m_camEntity(camEntity) {};
 
 void GraphRender::generateGraph(pain::Scene &scene,
                                 const std::vector<ConnectionGene> &links) {
@@ -177,7 +207,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
   m_lineCoordMap.clear();
 
   // =====================================================
-  // Step 1 BFS:
+  // Step 1: calculate outgoing and inDegree vectors
   std::map<int, std::vector<int>> outgoing;
   std::map<int, int> inDegree;
   for (const auto &link : links) {
@@ -186,7 +216,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
     inDegree[link.m_OutNodeId]++;
   }
 
-  // Step 1:
+  // Step 2: BFS
   while (!currentInput.empty()) {
     int size = static_cast<int>(m_layers.size());
     Layer &layer = m_layers.emplace_back(size, std::move(currentInput));
@@ -202,6 +232,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
     currentInput = std::move(next);
   }
 
+  // Step 3: create layers (for drawing later)
   // map links from layer to layer. Graph is acyclical, i.e., no need to
   // test previous layers
   for (unsigned i = 0; i < m_layers.size(); i++) {
@@ -221,31 +252,33 @@ void GraphRender::generateGraph(pain::Scene &scene,
 
   // =====================================================
   // Draw everything:
-  m_circles.reserve(m_numNodes);
+  m_circles.reserve(m_numNodes + currentInput.size());
   m_lines.reserve(m_numEdges);
   for (const Layer &layer : m_layers) {
     // circles (nodes)
     for (int node : layer.m_nodes) {
       reg::Entity entity = scene.createEntity();
       scene.createComponents(
-          entity,                                           //
-          pain::Transform2dComponent{layer.getCoord(node)}, //
+          entity,                                                           //
+          pain::Transform2dComponent{layer.getCoord(node) + m_centerCache}, //
           pain::SpriteComponent::create(
               {.layer = pain::RenderLayer::E,
                .shape = pain::QuadShape{NODE_DIAMETER}}),   //
           pain::MaterialComponent::create(m_nodeMaterial)); //
+      m_circles.push_back(entity);
     }
   }
   // lines (edges)
   for (const auto [orig, dest] : m_lineCoordMap) {
     reg::Entity entity = scene.createEntity();
     scene.createComponents(
-        entity,                            //
-        pain::Transform2dComponent{*orig}, //
+        entity,                                            //
+        pain::Transform2dComponent{*orig + m_centerCache}, //
         pain::SpriteComponent::create(
             {.layer = pain::RenderLayer::D,
-             .shape = pain::LineShape{*dest, LINK_THICKNESS}}), //
-        pain::MaterialComponent::create(m_lineMaterial)         //
-    );                                                          //
+             .shape = pain::LineShape{*dest, MAX_LINK_THICKNESS}}), //
+        pain::MaterialComponent::create(m_lineMaterial)             //
+    );                                                              //
+    m_lines.push_back(entity);
   }
 }

@@ -1,7 +1,6 @@
 #include "NEAT/Population.h"
 #include "CoreFiles/LogWrapper.h"
 #include "ECS/Components/NativeScript.h"
-#include "Others/MousePointer.h"
 #include <pain.h>
 #include <utility>
 #include <vector>
@@ -12,16 +11,15 @@ reg::Entity Population::create(pain::Scene &scene, pain::Application &app) {
 
   reg::Entity game = scene.createEntity();
   scene.createComponents(game, pain::NativeScriptComponent{});
-
-  const int w = 1024;
-  const int h = 768;
+  const pain::AppInit &config = app.getCurrentConfig();
   const float zoom = 1.f;
-  const glm::vec2 center{-1.f, -1.f};
-  pain::Dummy2dCamera::createBasicCamera(scene, w, h, zoom);
+  reg::Entity camEntity = pain::Dummy2dCamera::createMovingCamera(
+      scene, config.defaultWidth, config.defaultHeight, zoom);
 
-  // reg::Entity graphRender = GraphRender::create(scene, app.getRenderers());
+  reg::Entity graphRender =
+      GraphRender::create(scene, app.getRenderers(), camEntity);
   // MousePointer::create(scene, app.getRenderers(), graphRender);
-  reg::Entity graphRender = reg::Entity{-1};
+  // reg::Entity graphRender = reg::Entity{-1};
   pain::Scene::emplaceScript<Population>(scene.getEntity(), scene, pc,
                                          obstacleMaterial, std::move(obstacles),
                                          app, graphRender);
@@ -84,8 +82,8 @@ void Population::onCreate() {
   }
   m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
   m_currentObsIndex = m_index;
-  // worldScene.getNativeScript<GraphRender>(m_graphRender)
-  //     .generateGraph(worldScene, m_individuals[0].getGenome().m_links);
+  worldScene.getNativeScript<GraphRender>(m_graphRender)
+      .generateGraph(worldScene, m_individuals[0].getGenome().m_links);
 
   pain::Transform2dComponent &ptc =
       m_playerController->getComponent<pain::Transform2dComponent>();
@@ -234,8 +232,8 @@ void Population::classifyAllSpecies() {
       m_speciesRepresentatives.emplace(nextSpeciesID, individual.clone());
     }
   }
-  // GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
-  // gr.generateGraph(worldScene, m_bestIndividual->getGenome().m_links);
+  GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
+  gr.generateGraph(worldScene, m_bestIndividual->getGenome().m_links);
 }
 
 std::vector<Individual>

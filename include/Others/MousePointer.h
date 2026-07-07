@@ -14,12 +14,14 @@ public:
   reg::Entity static create(pain::Scene &scene, pain::Renderers &renderers,
                             reg::Entity cameraEntity);
   MousePointer(reg::Entity entity, pain::Scene &scene,
-               reg::Entity m_cameraEntity);
+               reg::Entity cameraEntity);
+
   void onEvent(const SDL_Event &e);
   void onUpdate(pain::DeltaTime deltaTime);
   void onCreate();
 
 private:
+  void onMouseButtonUp(const SDL_Event &event);
   int m_worldPosPanel = -1;
   reg::Entity m_cameraEntity = reg::Entity{-2};
   glm::vec2 screenToWorld(int mouseX, int mouseY);

@@ -17,8 +17,8 @@ reg::Entity Population::create(pain::Scene &scene, pain::Application &app) {
       scene, config.defaultWidth, config.defaultHeight, zoom);
 
   reg::Entity graphRender =
-      GraphRender::create(scene, app.getRenderers(), camEntity);
-  // MousePointer::create(scene, app.getRenderers(), graphRender);
+      GraphRender::create(scene, app.getRenderApi(), camEntity);
+  // MousePointer::create(scene, app.getRenderApi(), graphRender);
   // reg::Entity graphRender = reg::Entity{-1};
   pain::Scene::emplaceScript<Population>(scene.getEntity(), scene, pc,
                                          obstacleMaterial, std::move(obstacles),
@@ -104,9 +104,9 @@ void Population::onCreate() {
   m_playerRot = &prc.m_rotationRadians;
 
   // PLAYER BOX ================================================== //
-  pain::Shader &s = m_app.getRenderers().m_shaderManager.getDefaultShader(
+  pain::Shader &s = m_app.getRenderApi().m_shaderManager.getDefaultShader(
       pain::DefaultShader::Texture);
-  pain::Material &m = m_app.getRenderers().m_materialManager.createMaterial(
+  pain::Material &m = m_app.getRenderApi().m_materialManager.createMaterial(
       "Boxes", {.color = pain::Colors::Brown, .shader = s});
 
   reg::Entity box = getScene().createEntity();

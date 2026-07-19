@@ -36,7 +36,7 @@ pain::Application *pain::createApplication() {
   //     internalIni.gridSize.get(), pain::NativeScriptComponent{},
   //     pain::LuaScriptComponent(scene.getEntity()));
 
-  app->getRenderers().m_renderer2d.setCellGridSize(internalIni.gridSize.get());
+  app->getRenderApi().m_renderer2d.setCellGridSize(internalIni.gridSize.get());
 
   pain::Scene &scene = app->getWorldScene();
   scene.createComponents(scene.getEntity(), pain::NativeScriptComponent{});
@@ -62,7 +62,7 @@ pain::Application *pain::createApplication() {
   // const float zoom = 3.f;
   // reg::Entity cam = pain::Dummy2dCamera::createMovingCamera(
   //     scene, ini.defaultWidth.get(), ini.defaultHeight.get(), zoom);
-  // MousePointer::create(scene, app->getRenderers(), cam);
+  // MousePointer::create(scene, app->getRenderApi(), cam);
 
   return app;
 }

@@ -31,7 +31,7 @@ GraphRender::Layer::Layer(int layer, std::vector<int> nodes)
   }
 }
 
-reg::Entity GraphRender::create(pain::Scene &scene, pain::Renderers &renderers,
+reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderers,
                                 reg::Entity camEntity) {
   const float zoom = 1.f;
   const glm::vec2 center{-1.f, -1.f};
@@ -303,7 +303,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
   m_lines.reserve(m_numEdges);
   m_texts.reserve(currentInput.size());
 
-  pain::MaterialManager &mm = app.getRenderers().m_materialManager;
+  pain::MaterialManager &mm = app.getRenderApi().m_materialManager;
   // input text
   const Layer &inputLayer = layers[0];
   for (int node : inputLayer.m_nodes) {

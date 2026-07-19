@@ -5,7 +5,7 @@
 std::tuple<PlayerController *, pain::Material &,
            std::vector<ObstaclesController *>>
 FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
-  pain::Renderers &renderers = app.getRenderers();
+  pain::RenderApi &renderers = app.getRenderApi();
   pain::Shader &obstacleShader = renderers.m_shaderManager.getDefaultShader(
       pain::DefaultShader::SimpleTriangles);
   pain::Shader &defaultShader = renderers.m_shaderManager.getDefaultShader(

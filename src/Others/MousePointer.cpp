@@ -12,7 +12,7 @@
 #include <pain.h>
 #include <painless.h>
 
-reg::Entity MousePointer::create(pain::Scene &scene, pain::Renderers &renderers,
+reg::Entity MousePointer::create(pain::Scene &scene, pain::RenderApi &renderers,
                                  reg::Entity cameraEntity) {
   reg::Entity entity = scene.createEntity();
 

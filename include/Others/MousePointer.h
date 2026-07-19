@@ -11,7 +11,7 @@
 
 class MousePointer : public pain::WorldObject {
 public:
-  reg::Entity static create(pain::Scene &scene, pain::Renderers &renderers,
+  reg::Entity static create(pain::Scene &scene, pain::RenderApi &renderers,
                             reg::Entity cameraEntity);
   MousePointer(reg::Entity entity, pain::Scene &scene,
                reg::Entity cameraEntity);

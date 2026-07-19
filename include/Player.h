@@ -12,7 +12,7 @@ public:
 
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTimeSec);
-  void onRender(pain::RenderContext &renderer, bool isMinimized,
+  void onRender(pain::RenderContext &renderer, 
                 pain::DeltaTime currentTime);
 
   void resetPosition();

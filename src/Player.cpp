@@ -57,10 +57,10 @@ void PlayerController::onCreate() {
 }
 
 void PlayerController::onRender(pain::RenderContext &renderers,
-                                bool isMinimized, pain::DeltaTime currentTime) {
+                                 pain::DeltaTime currentTime) {
 
   UNUSED(renderers)
-  UNUSED(isMinimized)
+  
   const pain::Transform2dComponent &tc =
       getComponent<pain::Transform2dComponent>();
   const pain::RotationComponent &rc = getComponent<pain::RotationComponent>();

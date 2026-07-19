@@ -11,7 +11,7 @@ public:
 
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTime);
-  void onRender(pain::RenderContext &renderer, bool isMinimized,
+  void onRender(pain::RenderContext &renderer, 
                 pain::DeltaTime currentTime);
 
   FlappyGame(reg::Entity entity, pain::Scene &scene, PlayerController *pc,

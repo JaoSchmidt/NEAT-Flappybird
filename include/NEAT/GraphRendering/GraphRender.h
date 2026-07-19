@@ -15,7 +15,7 @@ public:
 
   void onUpdate(pain::DeltaTime deltaTime);
   void onEvent(const SDL_Event &event);
-  // void onRender(pain::RenderContext &renderer, bool isMinimized,
+  // void onRender(pain::RenderContext &renderer, 
   //               pain::DeltaTime currentTime);
   GraphRender(reg::Entity entity, pain::Scene &scene, reg::Entity camEntity,
               pain::Font *font);

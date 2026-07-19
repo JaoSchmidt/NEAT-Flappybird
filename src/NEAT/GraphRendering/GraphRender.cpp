@@ -348,7 +348,6 @@ void GraphRender::generateGraph(pain::Scene &scene,
     float thickness =
         t * (MAX_LINK_THICKNESS - MIN_LINK_THICKNESS) + MIN_LINK_THICKNESS;
     reg::Entity entity = scene.createEntity();
-    PLOG_W("dest.x = {}", dest.x);
     scene.createComponents(
         entity,                                           //
         pain::Transform2dComponent{orig + m_centerCache}, //

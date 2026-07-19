@@ -8,8 +8,8 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
   pain::RenderApi &renderers = app.getRenderApi();
   pain::Shader &obstacleShader = renderers.m_shaderManager.getDefaultShader(
       pain::DefaultShader::SimpleTriangles);
-  pain::Shader &defaultShader = renderers.m_shaderManager.getDefaultShader(
-      pain::DefaultShader::Texture);
+  pain::Shader &defaultShader =
+      renderers.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
 
   pain::Texture &playerTexture =
       pain::TextureManager::createTexture("resources/textures/Player.png");
@@ -18,7 +18,7 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
       "Player mat", //
       pain::MaterialCreationInfo{
           .color = pain::Colors::SkyBlue,
-                                 .params = std::monostate{},
+          .params = std::monostate{},
           .shader = defaultShader,
           .texture = playerTexture,
           .name = "Player Material" //
@@ -28,7 +28,7 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
   pain::Material &obstacleMaterial = renderers.m_materialManager.createMaterial(
       "Obstacle", //
       pain::MaterialCreationInfo{.color = pain::Colors::SkyBlue,
-          .params = std::monostate{},
+                                 .params = std::monostate{},
                                  .shader = obstacleShader,
                                  .name = "Obstacle Material"} //
   );
@@ -105,21 +105,18 @@ void FlappyGame::onCreate() {
       2);
 }
 
-void FlappyGame::onRender(pain::RenderContext &_, bool isMinimized,
-                          pain::DeltaTime currentTime) {
+void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime) {
 
-  if (!isMinimized) {
-    m_waveColor =
-        fmod(m_waveColor + m_colorInterval * currentTime.getSecondsf(), 360.F);
+  m_waveColor =
+      fmod(m_waveColor + m_colorInterval * currentTime.getSecondsf(), 360.F);
 
-    const auto waveColorRadians = glm::radians(m_waveColor);
-    // change obstacle color
-    pain::Color color(125 + sin(waveColorRadians) * 124,               // red
-                      76.5 + sin(waveColorRadians + M_PI / 4) * 76.5,  // green
-                      102 + sin(waveColorRadians + M_PI * 3 / 4) * 102 // blue
-    );
-    m_obstaclesMaterial.m_color = color;
-  }
+  const auto waveColorRadians = glm::radians(m_waveColor);
+  // change obstacle color
+  pain::Color color(125 + sin(waveColorRadians) * 124,               // red
+                    76.5 + sin(waveColorRadians + M_PI / 4) * 76.5,  // green
+                    102 + sin(waveColorRadians + M_PI * 3 / 4) * 102 // blue
+  );
+  m_obstaclesMaterial.m_color = color;
 }
 
 void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {

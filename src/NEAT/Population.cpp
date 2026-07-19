@@ -31,7 +31,7 @@ Population::Population(reg::Entity entity, pain::Scene &scene,
                        std::vector<ObstaclesController *> obc,
                        pain::Application &a, reg::Entity graphRender)
     : FlappyGame(entity, scene, pc, om, std::move(obc), a), worldScene(scene),
-      m_graphRender(graphRender) {};
+      m_rng(2727797253), m_graphRender(graphRender) {};
 
 void Population::onCreate() {
   FlappyGame::onCreate();
@@ -81,6 +81,8 @@ void Population::onCreate() {
   m_config.m_probRmConn = 0.025;  // Set probability of removing a connection
 
   // NEAT ========================================================== //
+  PLOG_I("--- RNG SEED USED = {} -------------------------------------",
+         m_rng.seed());
   m_individuals.reserve(m_config.m_populationSize);
   for (int i = 0; i < m_config.m_populationSize; ++i) {
     m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng, 0);

@@ -22,6 +22,9 @@ public:
 
   std::string name = "undefined";
 
+  static constexpr float MAX_HEIGHT = 1.f;
+  static constexpr float MIN_HEIGHT = -1.f;
+
 private:
   // physics
   float m_pseudoVelocityX = 1.f;

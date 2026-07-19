@@ -12,7 +12,7 @@ reg::Entity Population::create(pain::Scene &scene, pain::Application &app) {
   reg::Entity game = scene.createEntity();
   scene.createComponents(game, pain::NativeScriptComponent{});
   const pain::AppInit &config = app.getCurrentConfig();
-  const float zoom = 1.f;
+  const float zoom = app.getCurrentConfig().defaultZoom2d;
   reg::Entity camEntity = pain::Dummy2dCamera::createMovingCamera(
       scene, config.defaultWidth, config.defaultHeight, zoom);
 
@@ -37,8 +37,12 @@ void Population::onCreate() {
   FlappyGame::onCreate();
 
   painless::customPanel::addToPanel("Controller", [this]() {
-    if (ImGui::Button("Toogle auto time multiplier"))
-      m_app.toggleSimulation();
+    if (ImGui::Button("Toogle auto time multiplier")) {
+      if (m_app.isSimulation())
+        m_app.setInfiniteSimulation(false);
+      else
+        m_app.setInfiniteSimulation(true);
+    }
     ImGui::Text("Auto Multiplier is %s", m_app.isSimulation() ? "ON" : "OFF");
     if (ImGui::Button("Toogle NEAT")) {
       m_toggleNEAT = !m_toggleNEAT;
@@ -76,6 +80,7 @@ void Population::onCreate() {
   m_config.m_probRmNode = 0.01;   // Set probability of removing a node
   m_config.m_probRmConn = 0.025;  // Set probability of removing a connection
 
+  // NEAT ========================================================== //
   m_individuals.reserve(m_config.m_populationSize);
   for (int i = 0; i < m_config.m_populationSize; ++i) {
     m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng, 0);
@@ -83,8 +88,10 @@ void Population::onCreate() {
   m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
   m_currentObsIndex = m_index;
   worldScene.getNativeScript<GraphRender>(m_graphRender)
-      .generateGraph(worldScene, m_individuals[0].getGenome().m_links);
+      .generateGraph(worldScene, m_individuals[0].getGenome().m_links,
+                     m_individuals[0].getGenome().m_neurons, m_app);
 
+  // PLAYER INPUT ================================================== //
   pain::Transform2dComponent &ptc =
       m_playerController->getComponent<pain::Transform2dComponent>();
   pain::Movement2dComponent &pmc =
@@ -95,7 +102,26 @@ void Population::onCreate() {
   m_playerY = &ptc.m_position.y;
   m_playerVy = &pmc.m_velocity.y;
   m_playerRot = &prc.m_rotationRadians;
+
+  // PLAYER BOX ================================================== //
+  pain::Shader &s = m_app.getRenderers().m_shaderManager.getDefaultShader(
+      pain::DefaultShader::Texture);
+  pain::Material &m = m_app.getRenderers().m_materialManager.createMaterial(
+      "Boxes", {.color = pain::Colors::Brown, .shader = s});
+
+  reg::Entity box = getScene().createEntity();
+  getScene().createComponents(
+      box,
+      pain::Transform2dComponent::create({{0, PlayerController::MAX_HEIGHT}}),
+      pain::SpriteComponent{.layer = pain::RenderLayer::G},
+      pain::MaterialComponent::create(m) //
+  );
 }
+// ================================================================== //
+// ================================================================== //
+// GAME RELATED FUNCTIONS
+// ================================================================== //
+// ================================================================== //
 
 // ** get index of the closest obstacle to the left of the player
 int Population::getClosestObstacle(float playerPos) {
@@ -140,6 +166,7 @@ void Population::onUpdate(pain::DeltaTime deltaTime) {
       afterLosing();
       return;
     }
+    // Assuming 300 is
     if (m_points > 300) {
       m_app.setTimeMultiplier(1.);
       m_app.setRendereing(true);
@@ -153,9 +180,15 @@ void Population::onUpdate(pain::DeltaTime deltaTime) {
   // if (obsPos.x < DEFAULTXPOS)
   //   m_currentObsIndex = getClosestObstacle(DEFAULTXPOS);
 
-  // calculate space pressed probability
-  m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
-      {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot});
+  // INPUT VARIABLES, including player and obstacles
+  if (m_app.isSimulation()) {
+    m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
+        {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot});
+  } else {
+    GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
+    m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
+        {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot}, gr);
+  }
 }
 
 void Population::afterLosing() {
@@ -170,6 +203,12 @@ void Population::afterLosing() {
   m_loses++;
   FlappyGame::afterLosing();
 }
+
+// ================================================================== //
+// ================================================================== //
+// NEAT RELATED FUNCTIONS
+// ================================================================== //
+// ================================================================== //
 
 void Population::speciateFitness() {
   LOG_I("RepSize = {}, IndSize = {}", m_speciesRepresentatives.size(),
@@ -233,7 +272,8 @@ void Population::classifyAllSpecies() {
     }
   }
   GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
-  gr.generateGraph(worldScene, m_bestIndividual->getGenome().m_links);
+  gr.generateGraph(worldScene, m_bestIndividual->getGenome().m_links,
+                   m_bestIndividual->getGenome().m_neurons, m_app);
 }
 
 std::vector<Individual>

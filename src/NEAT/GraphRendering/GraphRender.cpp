@@ -1,14 +1,20 @@
-#include "NEAT/GraphRender.h"
-#include "CoreRender/Buffers/Material.h"
-#include "ECS/Registry/Entity.h"
+#include "NEAT/GraphRendering/GraphRender.h"
+#include "Core.h"
+#include "NEAT/GraphRendering/GraphicNode.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <pain.h>
 
 constexpr float SPACE_BETWEEN_LAYERS = 0.3F;
 constexpr float SPACE_BETWEEN_NODES = 0.125F;
-constexpr float MAX_LINK_THICKNESS = 0.02F;
+constexpr float MAX_LINK_THICKNESS = 0.04F;
+constexpr float MIN_LINK_THICKNESS = 0.005F;
 constexpr float NODE_DIAMETER = 0.1F;
+
+constexpr std::string_view materialNodes = "GraphNodes";
+constexpr std::string_view materialLine = "GraphLines";
+constexpr std::string_view materialBackground = "GraphBackground";
+constexpr std::string_view materialTemp = "GraphTemp";
 
 // score, deaths, generation, species
 
@@ -31,48 +37,60 @@ reg::Entity GraphRender::create(pain::Scene &scene, pain::Renderers &renderers,
   const glm::vec2 center{-1.f, -1.f};
 
   reg::Entity entity = scene.createEntity();
-  pain::Shader &nodeShader = renderers.m_materialManager.getDefaultShader(
-      pain::DefaultShader::Circles);
+  // pain::Shader &nodeShader = renderers.m_shaderManager.getDefaultShader(
+  //     pain::DefaultShader::Circles);
+  pain::Shader &backGroundShader = renderers.m_shaderManager.loadShaderFromFile(
+      "GraphFrame", "resources/shaders/graphFrame.glsl");
+  // pain::Shader &nodeShader =
+  //     renderers.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
+  pain::Shader &nodeShader = renderers.m_shaderManager.loadShaderFromFile(
+      "GraphNodeShader", "resources/shaders/graphNodes.glsl");
+  pain::Shader &lineShader =
+      renderers.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
+  pain::Font &font = renderers.m_fontManager.createFont(
+      "dumbfont", "resources/default/fonts/OpenSans-Regular.ttf", 40.0);
 
-  pain::Shader &lineShader = renderers.m_materialManager.loadShaderFromFile(
-      "LineGraphShader", "resources/shaders/graphLine.glsl");
-  pain::Material &nodeMaterial = renderers.m_materialManager.createMaterial(
-      "GraphNodes", //
+  // pain::Shader &lineShader = renderers.m_shaderManager.loadShaderFromFile(
+  //     "LineGraphShader", "resources/shaders/graphLine.glsl");
+  renderers.m_materialManager.createMaterial(
+      materialNodes, //
       pain::MaterialCreationInfo{
           .color = pain::Colors::FullWhite,
-          .params = pain::ParamSimplest{},
           .shader = nodeShader,
       } //
   );
-  pain::Material &backGroundMaterial =
-      renderers.m_materialManager.createMaterial(
-          "GraphBackground", //
-          pain::MaterialCreationInfo{
-              .color = pain::Colors::TransparentWhite,
-              .params = pain::ParamSimplest{},
-              .shader = renderers.m_materialManager.getDefaultShader(
-                  pain::DefaultShader::Texture),
-          } //
-      );
-  pain::Material &lineMaterial = renderers.m_materialManager.createMaterial(
-      "GraphLines", //
+  pain::Material &backGround = renderers.m_materialManager.createMaterial(
+      materialBackground, //
       pain::MaterialCreationInfo{
-          .color = pain::Colors::Brown,
-          .params = pain::ParamSimplest{},
+          .color = pain::Colors::StrongPink,
+          .shader = backGroundShader,
+      } //
+  );
+  pain::Material &temp = renderers.m_materialManager.createMaterial(
+      materialTemp, //
+      pain::MaterialCreationInfo{
+          .color = pain::Colors::TransparentWhite,
+          .shader = renderers.m_shaderManager.getDefaultShader(
+              pain::DefaultShader::Texture),
+      } //
+  );
+  renderers.m_materialManager.createMaterial(
+      materialLine, //
+      pain::MaterialCreationInfo{
+          .color = pain::Colors::StrongPink,
           .shader = lineShader,
       } //
   );
 
   scene.createComponents(entity, pain::Transform2dComponent{},
                          pain::NativeScriptComponent{},
-                         pain::MaterialComponent::create(backGroundMaterial),
+                         pain::MaterialComponent::create(backGround),
                          pain::SpriteComponent::create({
-                             .layer = pain::RenderLayer::C,
+                             .layer = pain::RenderLayer::F,
                              .shape = pain::RectShape({2.f, 1.f}),
                          })); //
   //
-  pain::Scene::emplaceScript<GraphRender>(entity, scene, nodeMaterial,
-                                          lineMaterial, camEntity);
+  pain::Scene::emplaceScript<GraphRender>(entity, scene, camEntity, &font);
   return entity;
 }
 
@@ -131,6 +149,12 @@ void GraphRender::onEvent(const SDL_Event &event) {
       tc.m_position -= m_centerCache;
       tc.m_position += center;
     }
+    for (int i = 0; i < static_cast<int>(m_texts.size()); i++) {
+      pain::Transform2dComponent &tc =
+          getComponent<pain::Transform2dComponent>(m_texts[i]);
+      tc.m_position -= m_centerCache;
+      tc.m_position += center;
+    }
     for (int i = 0; i < m_numEdges; i++) {
       auto [tc, sc] =
           getComponents<pain::Transform2dComponent, pain::SpriteComponent>(
@@ -141,6 +165,7 @@ void GraphRender::onEvent(const SDL_Event &event) {
       line.destination -= m_centerCache;
       line.destination += center;
     }
+
     m_centerCache = center;
     break;
   }
@@ -160,6 +185,7 @@ void GraphRender::onEvent(const SDL_Event &event) {
     break;
   }
 }
+
 void GraphRender::onUpdate(pain::DeltaTime _) {
 
   pain::SpriteComponent &sprite = getComponent<pain::SpriteComponent>();
@@ -176,13 +202,13 @@ void GraphRender::onUpdate(pain::DeltaTime _) {
 }
 
 GraphRender::GraphRender(reg::Entity entity, pain::Scene &scene,
-                         pain::Material &nodeMaterial,
-                         pain::Material &lineMaterial, reg::Entity camEntity)
-    : pain::WorldObject(entity, scene), m_nodeMaterial(nodeMaterial),
-      m_lineMaterial(lineMaterial), m_camEntity(camEntity) {};
+                         reg::Entity camEntity, pain::Font *font)
+    : pain::WorldObject(entity, scene), m_font(font), m_camEntity(camEntity) {};
 
 void GraphRender::generateGraph(pain::Scene &scene,
-                                const std::vector<ConnectionGene> &links) {
+                                const std::vector<ConnectionGene> &links,
+                                const std::vector<NodeGene> &neurons,
+                                pain::Application &app) {
   std::vector<int> currentInput = {-1, -2, -3, -4, -5};
   // Couple of things to know to help create a beautiful graph:
   // 1. the genome will already be sorted from the first to last layer
@@ -193,6 +219,14 @@ void GraphRender::generateGraph(pain::Scene &scene,
   // 3. inputs nodes don't have links behind
   // 4. output nodes don't have links forward
 
+  struct LineGraphicInfo {
+    int inNode;
+    int outNode;
+    const glm::vec2 from;
+    const glm::vec2 to;
+    float weight; // check if normalized [-1,1] or [0,1] later
+  };
+
   // =====================================================
   // clear previous genome
   for (reg::Entity entity : m_circles) {
@@ -201,28 +235,35 @@ void GraphRender::generateGraph(pain::Scene &scene,
   for (reg::Entity entity : m_lines) {
     scene.removeEntity(entity);
   }
+  for (reg::Entity entity : m_texts) {
+    scene.removeEntity(entity);
+  }
+  m_mapNodeEntity.clear();
+
   m_numNodes = 0;
   m_numEdges = 0;
-  m_layers.clear();
-  m_lineCoordMap.clear();
+  double maxWeight = -99999999999999;
+  double minWeight = 99999999999999;
+  std::vector<LineGraphicInfo> lineCoordMap;
+  std::vector<Layer> layers;
 
   // =====================================================
   // Step 1: calculate outgoing and inDegree vectors
-  std::map<int, std::vector<int>> outgoing;
+  std::map<int, std::vector<std::pair<int, double>>> outgoing;
   std::map<int, int> inDegree;
   for (const auto &link : links) {
     m_numEdges++;
-    outgoing[link.m_InNodeId].push_back(link.m_OutNodeId);
+    outgoing[link.m_InNodeId].push_back({link.m_OutNodeId, link.m_weight});
     inDegree[link.m_OutNodeId]++;
   }
 
   // Step 2: BFS
   while (!currentInput.empty()) {
-    int size = static_cast<int>(m_layers.size());
-    Layer &layer = m_layers.emplace_back(size, std::move(currentInput));
+    int size = static_cast<int>(layers.size());
+    Layer &layer = layers.emplace_back(size, std::move(currentInput));
     std::vector<int> next;
     for (int node : layer.m_nodes) {
-      for (int destinationNode : outgoing[node]) {
+      for (auto [destinationNode, _] : outgoing[node]) {
         if (--inDegree[destinationNode] == 0) {
           next.push_back(destinationNode);
           m_numNodes++;
@@ -235,15 +276,21 @@ void GraphRender::generateGraph(pain::Scene &scene,
   // Step 3: create layers (for drawing later)
   // map links from layer to layer. Graph is acyclical, i.e., no need to
   // test previous layers
-  for (unsigned i = 0; i < m_layers.size(); i++) {
-    const Layer &layer = m_layers[i];
+  for (unsigned i = 0; i < layers.size(); i++) {
+    const Layer &layer = layers[i];
     for (int node : layer.m_nodes) {
-      for (unsigned j = i + 1; j < m_layers.size(); j++) {
-        const Layer &olayer = m_layers[j];
-        for (int destinationNode : outgoing[node]) {
+      for (unsigned j = i + 1; j < layers.size(); j++) {
+        const Layer &olayer = layers[j];
+        for (auto [destinationNode, weight] : outgoing[node]) {
           if (olayer.contains(destinationNode)) {
-            m_lineCoordMap[&layer.getCoord(node)] =
-                &olayer.getCoord(destinationNode);
+            maxWeight = std::max(maxWeight, weight);
+            minWeight = std::min(minWeight, weight);
+            lineCoordMap.emplace_back(node,                             //
+                                      destinationNode,                  //
+                                      layer.getCoord(node),             //
+                                      olayer.getCoord(destinationNode), //
+                                      weight                            //
+            );
           }
         }
       }
@@ -254,7 +301,27 @@ void GraphRender::generateGraph(pain::Scene &scene,
   // Draw everything:
   m_circles.reserve(m_numNodes + currentInput.size());
   m_lines.reserve(m_numEdges);
-  for (const Layer &layer : m_layers) {
+  m_texts.reserve(currentInput.size());
+
+  pain::MaterialManager &mm = app.getRenderers().m_materialManager;
+  // input text
+  const Layer &inputLayer = layers[0];
+  for (int node : inputLayer.m_nodes) {
+    reg::Entity entity = scene.createEntity();
+    scene.createComponents(
+        entity, //
+        pain::Transform2dComponent{inputLayer.getCoord(node) -
+                                   glm::vec2(NODE_DIAMETER, NODE_DIAMETER / 2) +
+                                   m_centerCache}, //
+        pain::TextComponent{.text = "banana",
+                            .scale = 8.f,
+                            .align = pain::TextAlign::Right,
+                            .font = *m_font} //
+    );
+    m_texts.push_back(entity);
+  }
+
+  for (const Layer &layer : layers) {
     // circles (nodes)
     for (int node : layer.m_nodes) {
       reg::Entity entity = scene.createEntity();
@@ -262,23 +329,52 @@ void GraphRender::generateGraph(pain::Scene &scene,
           entity,                                                           //
           pain::Transform2dComponent{layer.getCoord(node) + m_centerCache}, //
           pain::SpriteComponent::create(
-              {.layer = pain::RenderLayer::E,
-               .shape = pain::QuadShape{NODE_DIAMETER}}),   //
-          pain::MaterialComponent::create(m_nodeMaterial)); //
+              {.layer = pain::RenderLayer::F,
+               .shape = pain::QuadShape{NODE_DIAMETER}}),         //
+          pain::MaterialComponent{mm.getMaterial(materialNodes)}, //
+          pain::ColorIndexComponent{pain::Colors::Black});        //
       m_circles.push_back(entity);
+      m_mapNodeEntity.emplace(node, entity);
     }
   }
   // lines (edges)
-  for (const auto [orig, dest] : m_lineCoordMap) {
+  double maxAbsWeight = std::max(std::abs(maxWeight), std::abs(minWeight));
+  for (const auto [inNode, outNode, orig, dest, weight] : lineCoordMap) {
+    // float thickness =
+    //     MIN_LINK_THICKNESS + std::abs(weight) / maxAbsWeight *
+    //                              (MAX_LINK_THICKNESS - MIN_LINK_THICKNESS);
+    double t = std::clamp(
+        (weight - minWeight) / std::abs(maxWeight - minWeight), 0.0, 1.0);
+    float thickness =
+        t * (MAX_LINK_THICKNESS - MIN_LINK_THICKNESS) + MIN_LINK_THICKNESS;
     reg::Entity entity = scene.createEntity();
+    PLOG_W("dest.x = {}", dest.x);
     scene.createComponents(
-        entity,                                            //
-        pain::Transform2dComponent{*orig + m_centerCache}, //
+        entity,                                           //
+        pain::Transform2dComponent{orig + m_centerCache}, //
         pain::SpriteComponent::create(
             {.layer = pain::RenderLayer::D,
-             .shape = pain::LineShape{*dest, MAX_LINK_THICKNESS}}), //
-        pain::MaterialComponent::create(m_lineMaterial)             //
-    );                                                              //
+             .shape = pain::LineShape{dest, thickness}}), //
+        pain::MaterialComponent{mm.getMaterial(materialLine)},
+        pain::ColorIndexComponent{pain::Colors::PastelGrey} //
+    );                                                      //
     m_lines.push_back(entity);
+  }
+  m_maxWeight = maxWeight;
+  m_minWeight = minWeight;
+}
+
+void GraphRender::updateWeights(
+    const std::unordered_map<int, NodeInput> &weights,
+    const std::vector<double> &inputs) {
+  for (const auto [node, entity] : m_mapNodeEntity) {
+    pain::Color &color = getComponent<pain::ColorIndexComponent>(entity).color;
+    double weight = weights.at(node).outputValue;
+    double t = std::clamp(
+        (weight - m_minWeight) / std::abs(m_maxWeight - m_minWeight), 0.0, 1.0);
+    int index = static_cast<int>(t * (m_palette.size() - 1));
+    color = m_palette[index];
+    color.value =
+        (color.value & 0x00FFFFFF) | (static_cast<uint8_t>(t * 255) << 24);
   }
 }

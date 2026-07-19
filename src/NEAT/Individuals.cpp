@@ -1,4 +1,5 @@
 #include "NEAT/Individuals.h"
+#include "NEAT/GraphRendering/GraphRender.h"
 #include "pain.h"
 #include <cstddef>
 
@@ -11,9 +12,24 @@ bool Individual::fit(const std::vector<double> &inputs) {
   //   oss << input << ", ";
   // }
   // LOG_T("[{}]", oss.str());
-  std::vector<double> outputs{
-      m_genome.run(inputs, m_config.m_numInputs, m_config.m_numOutputs)};
-  const bool jump = outputs[0] >= 0.5;
+  GenomeOutput out =
+      m_genome.run(inputs, m_config.m_numInputs, m_config.m_numOutputs);
+  const bool jump = out.outputs[0] >= 0.5;
+
+  return jump;
+}
+bool Individual::fit(const std::vector<double> &inputs, GraphRender &gr) {
+
+  // std::ostringstream oss;
+  // oss << std::fixed << std::setprecision(8);
+  // for (auto &input : inputs) {
+  //   oss << input << ", ";
+  // }
+  // LOG_T("[{}]", oss.str());
+  GenomeOutput out =
+      m_genome.run(inputs, m_config.m_numInputs, m_config.m_numOutputs);
+  gr.updateWeights(out.weightsPerNode, inputs);
+  const bool jump = out.outputs[0] >= 0.5;
 
   return jump;
 }

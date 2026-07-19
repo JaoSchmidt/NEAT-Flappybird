@@ -1,4 +1,4 @@
-#include "NN.h"
+#include "NEAT/NN.h"
 
 class GraphRender : public pain::WorldObject {
   struct Layer {
@@ -15,29 +15,34 @@ public:
 
   void onUpdate(pain::DeltaTime deltaTime);
   void onEvent(const SDL_Event &event);
-  GraphRender(reg::Entity entity, pain::Scene &scene,
-              pain::Material &nodeMaterial, pain::Material &lineMaterial,
-              reg::Entity camEntity);
-
+  // void onRender(pain::RenderContext &renderer, bool isMinimized,
+  //               pain::DeltaTime currentTime);
+  GraphRender(reg::Entity entity, pain::Scene &scene, reg::Entity camEntity,
+              pain::Font *font);
   /**
    * Generates the visual graph representing the genome neural network of the
    * individual
    */
   void generateGraph(pain::Scene &scene,
-                     const std::vector<ConnectionGene> &links);
+                     const std::vector<ConnectionGene> &links,
+                     const std::vector<NodeGene> &neurons,
+                     pain::Application &app);
+
+  void updateWeights(const std::unordered_map<int, NodeInput> &weights,
+                     const std::vector<double> &inputs);
 
 private:
-  std::vector<Layer> m_layers;
-  std::map<const glm::vec2 *, const glm::vec2 *> m_lineCoordMap;
+  std::map<int, reg::Entity> m_mapNodeEntity;
   std::vector<reg::Entity> m_circles;
   std::vector<reg::Entity> m_lines;
+  std::vector<reg::Entity> m_texts;
   glm::vec2 m_centerCache;
 
   // graph
-  pain::Material &m_nodeMaterial;
-  pain::Material &m_lineMaterial;
   int m_numNodes = 0;
   int m_numEdges = 0;
+  double m_maxWeight;
+  double m_minWeight;
 
   // rendering
   bool m_dragging = false;
@@ -45,8 +50,12 @@ private:
   glm::vec2 m_dragOffset{};
   glm::vec2 m_lastMouseWorld{};
 
+  pain::Font *m_font = nullptr;
+
   reg::Entity m_camEntity;
 
+  std::array<pain::Color, 16> m_palette = pain::Colors::makeGradient<16>(
+      pain::Colors::PastelGreen, pain::Colors::PastelRed);
   static constexpr float RESIZE_MARGIN = 0.05f;
   glm::vec2 screenToWorld(int x, int y);
 };

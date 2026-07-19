@@ -61,6 +61,16 @@ struct NodeGene {
   ~NodeGene() = default;
 };
 
+struct NodeInput {
+  double outputValue = 0.0;
+  bool activationFunctionApplied = false;
+};
+
+struct GenomeOutput {
+  std::unordered_map<int, NodeInput> weightsPerNode;
+  std::vector<double> outputs;
+};
+
 // all genes
 struct Genome {
   std::vector<NodeGene> m_neurons;
@@ -74,8 +84,8 @@ struct Genome {
   // Non Structural Mutations
   void setBias(int neuron_id, double bias);
   void setWeight(int link_id, double weight);
-  const std::vector<double> run(const std::vector<double> &inputs,
-                                int numInputs, int numOutputs) const;
+  GenomeOutput run(const std::vector<double> &inputs, int numInputs,
+                   int numOutputs) const;
 
 private:
   friend class Individual;

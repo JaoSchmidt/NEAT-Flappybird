@@ -1,6 +1,6 @@
 #pragma once
 #include "FlappyGame.h"
-#include "NEAT/GraphRender.h"
+#include "NEAT/GraphRendering/GraphRender.h"
 #include "NEAT/Individuals.h"
 #include "NEAT/NN.h"
 #include <vector>
@@ -47,7 +47,7 @@ protected:
                                               int tournamentSize) const;
   void offspringAndMutate(std::vector<Individual> selection);
 
-  // inputs
+  // inputs from player
   float *m_playerY = nullptr;
   float *m_playerVy = nullptr;
   float *m_playerRot = nullptr;
@@ -60,4 +60,6 @@ protected:
   reg::Entity m_graphRender;
 
   void afterLosing();
+
+  reg::Entity m_frame;
 };

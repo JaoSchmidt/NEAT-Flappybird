@@ -3,6 +3,8 @@
 set -euo pipefail
 trap 'trap - INT TERM; kill 0; exit 130' INT TERM
 
+#VOLUME=45536
+VOLUME=65536
 SERVER="192.168.200.105"
 LOCAL_USER="jaoschmidt"
 REMOTE_USER="admin"
@@ -49,6 +51,7 @@ docker run --rm \
         fi
 
         echo "Building..."
+        export CLICOLOR_FORCE=1
         cmake --build ./build -j$(nproc)
     '
 EOF
@@ -57,7 +60,7 @@ then
 else
     DBUS="unix:path=/run/user/$(id -u)/bus"
     DBUS_SESSION_BUS_ADDRESS=$DBUS notify-send "Build Failed" "Command failed" &
-    DBUS_SESSION_BUS_ADDRESS=$DBUS paplay --volume 45536 /usr/share/sounds/freedesktop/stereo/suspend-error.oga &
+    DBUS_SESSION_BUS_ADDRESS=$DBUS paplay --volume=$VOLUME /usr/share/sounds/freedesktop/stereo/suspend-error.oga &
     exit 1
 fi
 
@@ -74,4 +77,4 @@ echo "Build successful."
 
 DBUS="unix:path=/run/user/$(id -u)/bus"
 DBUS_SESSION_BUS_ADDRESS=$DBUS notify-send "Build Complete" "Command succeeded" &
-DBUS_SESSION_BUS_ADDRESS=$DBUS paplay /usr/share/sounds/freedesktop/stereo/complete.oga &
+DBUS_SESSION_BUS_ADDRESS=$DBUS paplay --volume=$VOLUME /usr/share/sounds/freedesktop/stereo/complete.oga &

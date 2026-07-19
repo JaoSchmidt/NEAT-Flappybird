@@ -112,10 +112,10 @@ void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
   }
 
   float acc;
-  if (tc.m_position.y > 1.F) {
+  if (tc.m_position.y > MAX_HEIGHT) {
     tc.m_position.y = 1.F;
     acc = m_gravity * 10.F;
-  } else if (tc.m_position.y < -1.F) {
+  } else if (tc.m_position.y < MIN_HEIGHT) {
     tc.m_position.y = -1.F;
     acc = m_jumpForce * 10.F;
   } else {

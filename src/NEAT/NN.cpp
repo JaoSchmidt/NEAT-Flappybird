@@ -3,13 +3,8 @@
 #include <cmath>
 #include <vector>
 
-struct NodeInput {
-  double outputValue = 0.0;
-  bool activationFunctionApplied = false;
-};
-
-const std::vector<double> Genome::run(const std::vector<double> &inputs,
-                                      int numInputs, int numOutputs) const {
+GenomeOutput Genome::run(const std::vector<double> &inputs, int numInputs,
+                         int numOutputs) const {
   std::unordered_map<int, NodeInput> nodeOutputs;
   nodeOutputs.reserve(m_links.size());
 
@@ -71,7 +66,7 @@ const std::vector<double> Genome::run(const std::vector<double> &inputs,
     }
     outputs.push_back(outputNode.outputValue);
   }
-  return outputs;
+  return {std::move(nodeOutputs), std::move(outputs)};
 }
 
 int Genome::loadInnovation(int inputNodeId, int outputNodeId) {

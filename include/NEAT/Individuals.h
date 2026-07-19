@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <pain.h>
 
+class GraphRender;
+
 struct NeatConfig {
   int m_populationSize;
   int m_numInputs;
@@ -38,6 +40,8 @@ public:
         m_genome(std::move(genome)) {};
 
   bool fit(const std::vector<double> &inputs);
+  // same as the above but populate the graphrender weights
+  bool fit(const std::vector<double> &inputs, GraphRender &gr);
   double clamp(double x) const // or "clip" is also a possible name
   {
     return std::min(m_config.m_max, std::max(m_config.m_min, x));

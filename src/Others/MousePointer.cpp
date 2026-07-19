@@ -23,8 +23,7 @@ reg::Entity MousePointer::create(pain::Scene &scene, pain::Renderers &renderers,
       pain::MaterialComponent::create(
           renderers.m_materialManager.createMaterial(
               "MousePointer",
-              {.params = pain::ParamSimplest{},
-               .shader = renderers.m_materialManager.getDefaultShader(
+               {.shader = renderers.m_shaderManager.getDefaultShader(
                    pain::DefaultShader::Texture),
                .texture = texture})                                //
           ),                                                       //

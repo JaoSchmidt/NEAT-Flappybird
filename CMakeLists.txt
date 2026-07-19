@@ -37,7 +37,7 @@ if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(${TARGET_NAME} PRIVATE /W4 /std:c++20 /Zi /bigobj)
   set_target_properties(${TARGET_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 else()
-  target_compile_options(${TARGET_NAME} PRIVATE -g -std=c++20 -Wall -Wextra)
+  target_compile_options(${TARGET_NAME} PRIVATE -g -std=c++20 -Wall -Wextra -fdiagnostics-color=always)
 endif()
 
 # =========== Pain Engine Integration ==================================

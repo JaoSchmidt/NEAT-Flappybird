@@ -6,9 +6,9 @@ std::tuple<PlayerController *, pain::Material &,
            std::vector<ObstaclesController *>>
 FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
   pain::Renderers &renderers = app.getRenderers();
-  pain::Shader &obstacleShader = renderers.m_materialManager.getDefaultShader(
+  pain::Shader &obstacleShader = renderers.m_shaderManager.getDefaultShader(
       pain::DefaultShader::SimpleTriangles);
-  pain::Shader &defaultShader = renderers.m_materialManager.getDefaultShader(
+  pain::Shader &defaultShader = renderers.m_shaderManager.getDefaultShader(
       pain::DefaultShader::Texture);
 
   pain::Texture &playerTexture =
@@ -18,7 +18,7 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
       "Player mat", //
       pain::MaterialCreationInfo{
           .color = pain::Colors::SkyBlue,
-          .params = pain::ParamSimplest{},
+                                 .params = std::monostate{},
           .shader = defaultShader,
           .texture = playerTexture,
           .name = "Player Material" //
@@ -28,7 +28,7 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
   pain::Material &obstacleMaterial = renderers.m_materialManager.createMaterial(
       "Obstacle", //
       pain::MaterialCreationInfo{.color = pain::Colors::SkyBlue,
-                                 .params = pain::ParamSimplest{},
+          .params = std::monostate{},
                                  .shader = obstacleShader,
                                  .name = "Obstacle Material"} //
   );

@@ -12,7 +12,7 @@
 #include <pain.h>
 #include <painless.h>
 
-reg::Entity MousePointer::create(pain::Scene &scene, pain::RenderApi &renderers,
+reg::Entity MousePointer::create(pain::Scene &scene, pain::RenderApi &renderAPI,
                                  reg::Entity cameraEntity) {
   reg::Entity entity = scene.createEntity();
 
@@ -21,9 +21,9 @@ reg::Entity MousePointer::create(pain::Scene &scene, pain::RenderApi &renderers,
   scene.createComponents(
       entity, pain::Transform2dComponent{},
       pain::MaterialComponent::create(
-          renderers.m_materialManager.createMaterial(
+          renderAPI.m_materialManager.createMaterial(
               "MousePointer",
-               {.shader = renderers.m_shaderManager.getDefaultShader(
+               {.shader = renderAPI.m_shaderManager.getDefaultShader(
                    pain::DefaultShader::Texture),
                .texture = texture})                                //
           ),                                                       //

@@ -10,7 +10,7 @@ class GraphRender : public pain::WorldObject {
   };
 
 public:
-  reg::Entity static create(pain::Scene &scene, pain::RenderApi &renderers,
+  reg::Entity static create(pain::Scene &scene, pain::RenderApi &renderAPI,
                             reg::Entity camEntity);
 
   void onUpdate(pain::DeltaTime deltaTime);

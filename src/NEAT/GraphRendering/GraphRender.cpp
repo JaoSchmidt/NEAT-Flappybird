@@ -31,50 +31,49 @@ GraphRender::Layer::Layer(int layer, std::vector<int> nodes)
   }
 }
 
-reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderers,
+reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
                                 reg::Entity camEntity) {
   const float zoom = 1.f;
   const glm::vec2 center{-1.f, -1.f};
 
   reg::Entity entity = scene.createEntity();
-  // pain::Shader &nodeShader = renderers.m_shaderManager.getDefaultShader(
+  // pain::Shader &nodeShader = renderAPI.m_shaderManager.getDefaultShader(
   //     pain::DefaultShader::Circles);
-  pain::Shader &backGroundShader = renderers.m_shaderManager.loadShaderFromFile(
+  pain::Shader &backGroundShader = renderAPI.m_shaderManager.loadShaderFromFile(
       "GraphFrame", "resources/shaders/graphFrame.glsl");
   // pain::Shader &nodeShader =
-  //     renderers.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
-  pain::Shader &nodeShader = renderers.m_shaderManager.loadShaderFromFile(
+  //     renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
+  pain::Shader &nodeShader = renderAPI.m_shaderManager.loadShaderFromFile(
       "GraphNodeShader", "resources/shaders/graphNodes.glsl");
   pain::Shader &lineShader =
-      renderers.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
-  pain::Font &font = renderers.m_fontManager.createFont(
-      "dumbfont", "resources/default/fonts/OpenSans-Regular.ttf", 40.0);
+      renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
+  pain::Font &font = renderAPI.m_fontManager.getDefault();
 
-  // pain::Shader &lineShader = renderers.m_shaderManager.loadShaderFromFile(
+  // pain::Shader &lineShader = renderAPI.m_shaderManager.loadShaderFromFile(
   //     "LineGraphShader", "resources/shaders/graphLine.glsl");
-  renderers.m_materialManager.createMaterial(
+  renderAPI.m_materialManager.createMaterial(
       materialNodes, //
       pain::MaterialCreationInfo{
           .color = pain::Colors::FullWhite,
           .shader = nodeShader,
       } //
   );
-  pain::Material &backGround = renderers.m_materialManager.createMaterial(
+  pain::Material &backGround = renderAPI.m_materialManager.createMaterial(
       materialBackground, //
       pain::MaterialCreationInfo{
           .color = pain::Colors::StrongPink,
           .shader = backGroundShader,
       } //
   );
-  pain::Material &temp = renderers.m_materialManager.createMaterial(
+  pain::Material &temp = renderAPI.m_materialManager.createMaterial(
       materialTemp, //
       pain::MaterialCreationInfo{
           .color = pain::Colors::TransparentWhite,
-          .shader = renderers.m_shaderManager.getDefaultShader(
+          .shader = renderAPI.m_shaderManager.getDefaultShader(
               pain::DefaultShader::Texture),
       } //
   );
-  renderers.m_materialManager.createMaterial(
+  renderAPI.m_materialManager.createMaterial(
       materialLine, //
       pain::MaterialCreationInfo{
           .color = pain::Colors::StrongPink,

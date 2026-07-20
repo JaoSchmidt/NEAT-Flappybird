@@ -56,10 +56,10 @@ void PlayerController::onCreate() {
   });
 }
 
-void PlayerController::onRender(pain::RenderContext &renderers,
+void PlayerController::onRender(pain::RenderContext &renderAPI,
                                  pain::DeltaTime currentTime) {
 
-  UNUSED(renderers)
+  UNUSED(renderAPI)
   
   const pain::Transform2dComponent &tc =
       getComponent<pain::Transform2dComponent>();

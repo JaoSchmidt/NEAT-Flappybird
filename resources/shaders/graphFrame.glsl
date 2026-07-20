@@ -17,6 +17,8 @@ out float v_TilingFactor;
 void main()
 {
 	v_TexCoord = a_TexCoord;
+	v_TexIndex = a_TexIndex;
+	v_TilingFactor = a_TilingFactor;
 	v_Color = a_Color;
 	gl_Position = u_ViewProjection * vec4(a_Position, 1.0);	
 }
@@ -28,12 +30,16 @@ layout(location = 0) out vec4 color;
 
 in vec2 v_TexCoord;
 in vec4 v_Color;
+in float v_TexIndex;
+in float v_TilingFactor;
 
-uniform vec4 u_OuterColor = vec4(0.5, 0.5, 0.5, 1.0);
+uniform sampler2D u_Textures[32];
 
-uniform float u_Radius = 0.08;
-uniform float u_BorderWidth = 0.03;
-uniform float u_Smoothness = 0.002;
+vec4 u_OuterColor = vec4(0.5, 0.5, 0.5, 1.0);
+
+float u_Radius = 0.08;
+float u_BorderWidth = 0.03;
+float u_Smoothness = 0.002;
 
 float roundedBoxSDF(vec2 p, vec2 b, float r)
 {
@@ -59,7 +65,7 @@ void main()
     float t = smoothstep(-u_Smoothness, u_Smoothness, d);
 
     // Border uses v_Color, outside uses gray
-    vec4 c = mix(v_Color, u_OuterColor, t);
+    vec4 c = mix(texture(u_Textures[int(v_TexIndex)], v_TexCoord * v_TilingFactor) * v_Color, u_OuterColor, t);
 
     color = c;
 }

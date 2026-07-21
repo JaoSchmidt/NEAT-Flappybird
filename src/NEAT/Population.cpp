@@ -9,7 +9,7 @@ reg::Entity Population::create(pain::Scene &scene, pain::Application &app) {
 
   auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app);
 
-  reg::Entity game = scene.createEntity();
+  reg::Entity game = scene.createEntity("PopulationGame");
   scene.createComponents(game, pain::NativeScriptComponent{});
   const pain::AppInit &config = app.getCurrentConfig();
   const float zoom = app.getCurrentConfig().defaultZoom2d;
@@ -111,7 +111,7 @@ void Population::onCreate() {
   pain::Material &m = m_app.getRenderApi().m_materialManager.createMaterial(
       "Boxes", {.color = pain::Colors::Brown, .shader = s});
 
-  reg::Entity box = getScene().createEntity();
+  reg::Entity box = getScene().createEntity("PopulationBox");
   getScene().createComponents(
       box,
       pain::Transform2dComponent::create({{0, PlayerController::MAX_HEIGHT}}),

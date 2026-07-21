@@ -7,7 +7,7 @@
 
 reg::Entity createPlayer(pain::Scene &scene, pain::Material &m) {
 
-  reg::Entity entity = scene.createEntity();
+  reg::Entity entity = scene.createEntity("Player");
   scene.createComponents(
       entity, pain::Transform2dComponent{glm::vec2(DEFAULTXPOS, 0.0F)},
       pain::Movement2dComponent{glm::vec2(0.F, 0.0F), 1.0F}, //

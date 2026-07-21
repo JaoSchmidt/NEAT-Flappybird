@@ -36,7 +36,7 @@ reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
   const float zoom = 1.f;
   const glm::vec2 center{-1.f, -1.f};
 
-  reg::Entity entity = scene.createEntity();
+  reg::Entity entity = scene.createEntity("GraphRenderRoot");
   // pain::Shader &nodeShader = renderAPI.m_shaderManager.getDefaultShader(
   //     pain::DefaultShader::Circles);
   pain::Shader &backGroundShader = renderAPI.m_shaderManager.loadShaderFromFile(
@@ -306,7 +306,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
   // input text
   const Layer &inputLayer = layers[0];
   for (int node : inputLayer.m_nodes) {
-    reg::Entity entity = scene.createEntity();
+    reg::Entity entity = scene.createEntity("GraphText");
     scene.createComponents(
         entity, //
         pain::Transform2dComponent{inputLayer.getCoord(node) -
@@ -323,7 +323,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
   for (const Layer &layer : layers) {
     // circles (nodes)
     for (int node : layer.m_nodes) {
-      reg::Entity entity = scene.createEntity();
+      reg::Entity entity = scene.createEntity("GraphNode");
       scene.createComponents(
           entity,                                                           //
           pain::Transform2dComponent{layer.getCoord(node) + m_centerCache}, //
@@ -346,7 +346,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
         (weight - minWeight) / std::abs(maxWeight - minWeight), 0.0, 1.0);
     float thickness =
         t * (MAX_LINK_THICKNESS - MIN_LINK_THICKNESS) + MIN_LINK_THICKNESS;
-    reg::Entity entity = scene.createEntity();
+    reg::Entity entity = scene.createEntity("GraphEdge");
     scene.createComponents(
         entity,                                           //
         pain::Transform2dComponent{orig + m_centerCache}, //

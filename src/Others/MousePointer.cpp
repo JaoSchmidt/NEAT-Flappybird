@@ -14,7 +14,7 @@
 
 reg::Entity MousePointer::create(pain::Scene &scene, pain::RenderApi &renderAPI,
                                  reg::Entity cameraEntity) {
-  reg::Entity entity = scene.createEntity();
+  reg::Entity entity = scene.createEntity("MousePointer");
 
   pain::Texture &texture =
       pain::TextureManager::createTexture("resources/textures/cross.png");

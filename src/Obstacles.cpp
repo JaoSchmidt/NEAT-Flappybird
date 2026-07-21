@@ -3,7 +3,7 @@
 
 reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
 
-  reg::Entity e = scene.createEntity();
+  reg::Entity e = scene.createEntity("Obstacle");
   scene.createComponents(
       e, //
       pain::Transform2dComponent(glm::vec3(2.0F, -0.5F, 0.F)),

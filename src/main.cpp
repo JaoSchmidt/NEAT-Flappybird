@@ -33,13 +33,13 @@ pain::Application *pain::createApplication() {
 
   // Create the ECS World Scene
   // pain::Scene& scene = app->createWorldSceneComponents(
-  //     internalIni.gridSize.get(), pain::NativeScriptComponent{},
-  //     pain::LuaScriptComponent(scene.getEntity()));
+  //     internalIni.gridSize.get(), cmp::Script{},
+  //     cmp::Lua(scene.getEntity()));
 
   app->getRenderApi().m_renderer2d.setCellGridSize(internalIni.gridSize.get());
 
   pain::Scene &scene = app->getWorldScene();
-  scene.createComponents(scene.getEntity(), pain::NativeScriptComponent{});
+  scene.createComponents(scene.getEntity(), cmp::Script{});
 
   pain::BasicScene::syncSystems(scene);
 

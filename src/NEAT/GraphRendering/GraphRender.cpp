@@ -1,4 +1,5 @@
 #include "NEAT/GraphRendering/GraphRender.h"
+#include "Assets/ManagerTexture.h"
 #include "Core.h"
 #include "NEAT/GraphRendering/GraphicNode.h"
 #include "imgui.h"
@@ -13,8 +14,8 @@ constexpr float NODE_DIAMETER = 0.1F;
 
 constexpr std::string_view materialNodes = "GraphNodes";
 constexpr std::string_view materialLine = "GraphLines";
+constexpr std::string_view materialFrame = "GraphFrame";
 constexpr std::string_view materialBackground = "GraphBackground";
-constexpr std::string_view materialTemp = "GraphTemp";
 
 // score, deaths, generation, species
 
@@ -34,20 +35,19 @@ GraphRender::Layer::Layer(int layer, std::vector<int> nodes)
 reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
                                 reg::Entity camEntity) {
   const float zoom = 1.f;
-  const glm::vec2 center{-1.f, -1.f};
+  const glm::vec2 center{0.06f, -1.71f};
 
   reg::Entity entity = scene.createEntity("GraphRenderRoot");
   // pain::Shader &nodeShader = renderAPI.m_shaderManager.getDefaultShader(
   //     pain::DefaultShader::Circles);
-  pain::Shader &backGroundShader = renderAPI.m_shaderManager.loadShaderFromFile(
-      "GraphFrame", "resources/shaders/graphFrame.glsl");
-  // pain::Shader &nodeShader =
+  // pain::Shader &backGroundShader =
   //     renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
+  pain::Shader &frameShader = renderAPI.m_shaderManager.loadShaderFromFile(
+      "GraphFrame", "resources/shaders/graphFrame.glsl");
   pain::Shader &nodeShader = renderAPI.m_shaderManager.loadShaderFromFile(
       "GraphNodeShader", "resources/shaders/graphNodes.glsl");
   pain::Shader &lineShader =
       renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
-  pain::Font &font = renderAPI.m_fontManager.getDefault();
 
   // pain::Shader &lineShader = renderAPI.m_shaderManager.loadShaderFromFile(
   //     "LineGraphShader", "resources/shaders/graphLine.glsl");
@@ -58,19 +58,19 @@ reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
           .shader = nodeShader,
       } //
   );
-  pain::Material &backGround = renderAPI.m_materialManager.createMaterial(
+  renderAPI.m_materialManager.createMaterial(
       materialBackground, //
       pain::MaterialCreationInfo{
-          .color = pain::Colors::StrongPink,
-          .shader = backGroundShader,
+          .color = pain::Color::fromRGB(0x444444),
+          .shader = renderAPI.m_shaderManager.getDefaultShader(
+              pain::DefaultShader::Texture) //
       } //
   );
-  pain::Material &temp = renderAPI.m_materialManager.createMaterial(
-      materialTemp, //
+  renderAPI.m_materialManager.createMaterial(
+      materialFrame, //
       pain::MaterialCreationInfo{
-          .color = pain::Colors::TransparentWhite,
-          .shader = renderAPI.m_shaderManager.getDefaultShader(
-              pain::DefaultShader::Texture),
+          .color = pain::Color::fromRGB(0xdd8e40),
+          .shader = frameShader //
       } //
   );
   renderAPI.m_materialManager.createMaterial(
@@ -81,15 +81,15 @@ reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
       } //
   );
 
-  scene.createComponents(entity, pain::Transform2dComponent{},
-                         pain::NativeScriptComponent{},
-                         pain::MaterialComponent::create(backGround),
-                         pain::SpriteComponent::create({
-                             .layer = pain::RenderLayer::F,
-                             .shape = pain::RectShape({2.f, 1.f}),
-                         })); //
+  scene.createComponents(entity, cmp::Pos2d{center},
+                         cmp::Script{} //
+  );                                                   //
   //
-  pain::Scene::emplaceScript<GraphRender>(entity, scene, camEntity, &font);
+  pain::Scene::emplaceScript<GraphRender>(
+      entity, scene, camEntity,
+      &renderAPI.m_fontManager.createFont(
+          "SourceSans", "resources/default/fonts/SourceSans3-Regular.ttf", 60),
+      center);
   return entity;
 }
 
@@ -109,7 +109,7 @@ glm::vec2 GraphRender::screenToWorld(int x, int y) {
   }
 
   const auto &[camCC, camTC] =
-      getComponents<cmp::OrthoCamera, pain::Transform2dComponent>(m_camEntity);
+      getComponents<cmp::Cam2d, cmp::Pos2d>(m_camEntity);
   return camCC.screenToWorld(adjX, adjY, camTC);
 }
 
@@ -118,12 +118,11 @@ void GraphRender::onEvent(const SDL_Event &event) {
   case SDL_MOUSEBUTTONDOWN: {
     if (event.button.button != SDL_BUTTON_LEFT)
       break;
-    auto [sprite, transform] =
-        getComponents<pain::SpriteComponent, pain::Transform2dComponent>();
+    cmp::Pos2d &transform =
+        getComponent<cmp::Pos2d>();
     glm::vec2 mouse = screenToWorld(event.button.x, event.button.y);
-    const pain::RectShape &rect = std::get<pain::RectShape>(sprite.m_shape);
 
-    glm::vec2 half = rect.size * 0.5f;
+    glm::vec2 half = glm::vec2(0.5f);
 
     glm::vec2 min = transform.m_position - half;
     glm::vec2 max = transform.m_position + half;
@@ -141,22 +140,22 @@ void GraphRender::onEvent(const SDL_Event &event) {
     if (event.button.button == SDL_BUTTON_LEFT)
       m_dragging = false;
     const glm::vec2 &center =
-        getComponent<pain::Transform2dComponent>().m_position;
+        getComponent<cmp::Pos2d>().m_position;
     for (int i = 0; i < static_cast<int>(m_circles.size()); i++) {
-      pain::Transform2dComponent &tc =
-          getComponent<pain::Transform2dComponent>(m_circles[i]);
+      cmp::Pos2d &tc =
+          getComponent<cmp::Pos2d>(m_circles[i]);
       tc.m_position -= m_centerCache;
       tc.m_position += center;
     }
-    for (int i = 0; i < static_cast<int>(m_texts.size()); i++) {
-      pain::Transform2dComponent &tc =
-          getComponent<pain::Transform2dComponent>(m_texts[i]);
+    for (int i = 0; i < static_cast<int>(m_misc.size()); i++) {
+      cmp::Pos2d &tc =
+          getComponent<cmp::Pos2d>(m_misc[i]);
       tc.m_position -= m_centerCache;
       tc.m_position += center;
     }
     for (int i = 0; i < m_numEdges; i++) {
       auto [tc, sc] =
-          getComponents<pain::Transform2dComponent, pain::SpriteComponent>(
+          getComponents<cmp::Pos2d, cmp::Sprite>(
               m_lines[i]);
       tc.m_position -= m_centerCache;
       tc.m_position += center;
@@ -171,8 +170,8 @@ void GraphRender::onEvent(const SDL_Event &event) {
 
   case SDL_MOUSEMOTION: {
     glm::vec2 mouse = screenToWorld(event.motion.x, event.motion.y);
-    pain::Transform2dComponent &transform =
-        getComponent<pain::Transform2dComponent>();
+    cmp::Pos2d &transform =
+        getComponent<cmp::Pos2d>();
 
     if (m_dragging) {
       transform.m_position = mouse - m_dragOffset;
@@ -185,28 +184,38 @@ void GraphRender::onEvent(const SDL_Event &event) {
   }
 }
 
-void GraphRender::onUpdate(pain::DeltaTime _) {
+void populateMisc(std::vector<reg::Entity> &misc, pain::Scene &scene,
+                  pain::Application &app, const glm::vec2 &center = {0, 0}) {
+  pain::MaterialManager &mm = app.getRenderApi().m_materialManager;
 
-  pain::SpriteComponent &sprite = getComponent<pain::SpriteComponent>();
-  pain::RectShape &rect = std::get<pain::RectShape>(sprite.m_shape);
-  const Uint8 *state = SDL_GetKeyboardState(NULL);
-  if (state[SDL_SCANCODE_J])
-    rect.size.y -= 0.05f;
-  if (state[SDL_SCANCODE_K])
-    rect.size.y += 0.05f;
-  if (state[SDL_SCANCODE_H])
-    rect.size.x -= 0.05f;
-  if (state[SDL_SCANCODE_L])
-    rect.size.x += 0.05f;
+  reg::Entity entity = scene.createEntity("Graph Frame");
+  scene.createComponents(
+      entity, cmp::Pos2d{center}, cmp::Script{},
+      cmp::Material::create(mm.getMaterial(materialFrame)),
+      cmp::Sprite::create({
+          .layer = pain::RenderLayer::C,
+          .shape = pain::RectShape({4.f, 1.0f}),
+      })); //
+  misc.push_back(entity);
+  scene.createComponents(
+      entity, cmp::Pos2d{center}, cmp::Script{},
+      cmp::Material::create(mm.getMaterial(materialBackground)),
+      cmp::Sprite::create({
+          .layer = pain::RenderLayer::B,
+          .shape = pain::RectShape({6.f, 1.2f}),
+      })); //
+  misc.push_back(entity);
 }
 
 GraphRender::GraphRender(reg::Entity entity, pain::Scene &scene,
-                         reg::Entity camEntity, pain::Font *font)
-    : pain::WorldObject(entity, scene), m_font(font), m_camEntity(camEntity) {};
+                         reg::Entity camEntity, pain::Font *font,
+                         const glm::vec2 &center)
+    : pain::WorldObject(entity, scene), m_centerCache(center), m_font(font),
+      m_camEntity(camEntity) {};
 
 void GraphRender::generateGraph(pain::Scene &scene,
                                 const std::vector<ConnectionGene> &links,
-                                const std::vector<NodeGene> &neurons,
+                                const std::vector<std::string> &inputNames,
                                 pain::Application &app) {
   std::vector<int> currentInput = {-1, -2, -3, -4, -5};
   // Couple of things to know to help create a beautiful graph:
@@ -234,7 +243,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
   for (reg::Entity entity : m_lines) {
     scene.removeEntity(entity);
   }
-  for (reg::Entity entity : m_texts) {
+  for (reg::Entity entity : m_misc) {
     scene.removeEntity(entity);
   }
   m_mapNodeEntity.clear();
@@ -300,38 +309,44 @@ void GraphRender::generateGraph(pain::Scene &scene,
   // Draw everything:
   m_circles.reserve(m_numNodes + currentInput.size());
   m_lines.reserve(m_numEdges);
-  m_texts.reserve(currentInput.size());
+  m_misc.reserve(currentInput.size() // input text
+                 + 1                 // frame
+                 + 1                 // background
+  );
 
   pain::MaterialManager &mm = app.getRenderApi().m_materialManager;
+  populateMisc(m_misc, scene, app, m_centerCache);
   // input text
   const Layer &inputLayer = layers[0];
   for (int node : inputLayer.m_nodes) {
-    reg::Entity entity = scene.createEntity("GraphText");
-    scene.createComponents(
-        entity, //
-        pain::Transform2dComponent{inputLayer.getCoord(node) -
-                                   glm::vec2(NODE_DIAMETER, NODE_DIAMETER / 2) +
-                                   m_centerCache}, //
-        pain::TextComponent{.text = "banana",
-                            .scale = 8.f,
-                            .align = pain::TextAlign::Right,
-                            .font = *m_font} //
-    );
-    m_texts.push_back(entity);
+    if (node < 0) {
+      reg::Entity entity = scene.createEntity("GraphText");
+      scene.createComponents(
+          entity, //
+          cmp::Pos2d{
+              inputLayer.getCoord(node) -
+              glm::vec2(NODE_DIAMETER, NODE_DIAMETER / 2) + m_centerCache}, //
+          cmp::Text{.text = inputNames[-node - 1],
+                              .scale = 6.f,
+                              .align = pain::TextAlign::Right,
+                              .font = *m_font} //
+      );
+      m_misc.push_back(entity);
+    }
   }
 
   for (const Layer &layer : layers) {
     // circles (nodes)
     for (int node : layer.m_nodes) {
-      reg::Entity entity = scene.createEntity("GraphNode");
+      reg::Entity entity = scene.createEntity("Graph Node");
       scene.createComponents(
           entity,                                                           //
-          pain::Transform2dComponent{layer.getCoord(node) + m_centerCache}, //
-          pain::SpriteComponent::create(
+          cmp::Pos2d{layer.getCoord(node) + m_centerCache}, //
+          cmp::Sprite::create(
               {.layer = pain::RenderLayer::F,
                .shape = pain::QuadShape{NODE_DIAMETER}}),         //
-          pain::MaterialComponent{mm.getMaterial(materialNodes)}, //
-          pain::ColorIndexComponent{pain::Colors::Black});        //
+          cmp::Material{mm.getMaterial(materialNodes)}, //
+          cmp::ColorIdx{pain::Colors::Black});        //
       m_circles.push_back(entity);
       m_mapNodeEntity.emplace(node, entity);
     }
@@ -347,14 +362,16 @@ void GraphRender::generateGraph(pain::Scene &scene,
     float thickness =
         t * (MAX_LINK_THICKNESS - MIN_LINK_THICKNESS) + MIN_LINK_THICKNESS;
     reg::Entity entity = scene.createEntity("GraphEdge");
+    PLOG_I("Line coords: ({},{}) -> ({},{})", TP_VEC2(orig), TP_VEC2(dest));
+
     scene.createComponents(
         entity,                                           //
-        pain::Transform2dComponent{orig + m_centerCache}, //
-        pain::SpriteComponent::create(
+        cmp::Pos2d{orig + m_centerCache}, //
+        cmp::Sprite::create(
             {.layer = pain::RenderLayer::D,
-             .shape = pain::LineShape{dest, thickness}}), //
-        pain::MaterialComponent{mm.getMaterial(materialLine)},
-        pain::ColorIndexComponent{pain::Colors::PastelGrey} //
+             .shape = pain::LineShape{dest + m_centerCache, thickness}}), //
+        cmp::Material{mm.getMaterial(materialLine)},
+        cmp::ColorIdx{pain::Colors::PastelGrey} //
     );                                                      //
     m_lines.push_back(entity);
   }
@@ -366,7 +383,7 @@ void GraphRender::updateWeights(
     const std::unordered_map<int, NodeInput> &weights,
     const std::vector<double> &inputs) {
   for (const auto [node, entity] : m_mapNodeEntity) {
-    pain::Color &color = getComponent<pain::ColorIndexComponent>(entity).color;
+    pain::Color &color = getComponent<cmp::ColorIdx>(entity).color;
     double weight = weights.at(node).outputValue;
     double t = std::clamp(
         (weight - m_minWeight) / std::abs(m_maxWeight - m_minWeight), 0.0, 1.0);

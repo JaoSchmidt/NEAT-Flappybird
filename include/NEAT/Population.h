@@ -26,6 +26,8 @@ public:
   ~Population() = default;
 
 protected:
+  static std::vector<std::string> inputNames();
+
   pain::Scene &worldScene; // To mess with time multipliers
   // forced delta time equal 1/60
   static constexpr double m_deltaTime = static_cast<double>(1) / 60;

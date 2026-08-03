@@ -35,25 +35,25 @@ in float v_TilingFactor;
 
 uniform sampler2D u_Textures[32];
 
-vec4 u_OuterColor = vec4(0);
+vec4 u_OuterColor = vec4(0.171, 0.171, 0.171, 1.0);
 
 float radius = 0.08;
 float u_Thickness = 0.01;
 float u_Smoothness = 0.005;
 
-float roundedBoxSDF(vec2 p, vec2 b, float r)
+float roundedBoxSDF(vec2 pos, vec2 b, float r)
 {
-    vec2 q = abs(p) - b + r;
+    vec2 q = abs(pos) - b + r;
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
 void main()
 {
-    vec2 objectSize = vec2(6, 1); // in object units
+    vec2 objectSize = vec2(6, 2.4); //
 
     vec2 p = (v_TexCoord - 0.5) * objectSize;
 
-    float d = roundedBoxSDF(p, vec2(1.0, 0.5), radius);
+    float d = roundedBoxSDF(p, vec2(1.5, 1), radius);
 
     // Transparent hole
     if (d < -u_Thickness)

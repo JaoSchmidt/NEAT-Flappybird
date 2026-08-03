@@ -13,19 +13,18 @@ public:
   reg::Entity static create(pain::Scene &scene, pain::RenderApi &renderAPI,
                             reg::Entity camEntity);
 
-  void onUpdate(pain::DeltaTime deltaTime);
   void onEvent(const SDL_Event &event);
-  // void onRender(pain::RenderContext &renderer, 
+  // void onRender(pain::RenderContext &renderer,
   //               pain::DeltaTime currentTime);
   GraphRender(reg::Entity entity, pain::Scene &scene, reg::Entity camEntity,
-              pain::Font *font);
+              pain::Font *font, const glm::vec2 &center = {0, 0});
   /**
    * Generates the visual graph representing the genome neural network of the
    * individual
    */
   void generateGraph(pain::Scene &scene,
                      const std::vector<ConnectionGene> &links,
-                     const std::vector<NodeGene> &neurons,
+                     const std::vector<std::string> &inputNames,
                      pain::Application &app);
 
   void updateWeights(const std::unordered_map<int, NodeInput> &weights,
@@ -35,8 +34,8 @@ private:
   std::map<int, reg::Entity> m_mapNodeEntity;
   std::vector<reg::Entity> m_circles;
   std::vector<reg::Entity> m_lines;
-  std::vector<reg::Entity> m_texts;
-  glm::vec2 m_centerCache;
+  std::vector<reg::Entity> m_misc;
+  glm::vec2 m_centerCache = glm::vec2(0);
 
   // graph
   int m_numNodes = 0;

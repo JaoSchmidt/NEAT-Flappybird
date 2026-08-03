@@ -6,13 +6,13 @@ reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
   reg::Entity e = scene.createEntity("Obstacle");
   scene.createComponents(
       e, //
-      pain::Transform2dComponent(glm::vec3(2.0F, -0.5F, 0.F)),
-      pain::Movement2dComponent(),
-      pain::SpriteComponent::create(
+      cmp::Pos2d(glm::vec3(2.0F, -0.5F, 0.F)),
+      cmp::Mov2d(),
+      cmp::Sprite::create(
           {.layer = pain::RenderLayer::B,
            .shape = pain::TriangleShape{0.8F, 2.00F}}),
-      pain::MaterialComponent::create(m), //
-      pain::NativeScriptComponent{});
+      cmp::Material::create(m), //
+      cmp::Script{});
 
   pain::Scene::emplaceScript<ObstaclesController>(e, scene);
 
@@ -20,8 +20,8 @@ reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
 }
 
 void ObstaclesController::onUpdate(pain::DeltaTime _) {
-  const pain::Transform2dComponent &tc =
-      getComponent<pain::Transform2dComponent>();
+  const cmp::Pos2d &tc =
+      getComponent<cmp::Pos2d>();
   if (tc.m_position.x < DEFAULTXPOS && m_isUpsideDown && m_canCountPoints) {
     (*m_points)++;
     m_canCountPoints = false;
@@ -30,9 +30,9 @@ void ObstaclesController::onUpdate(pain::DeltaTime _) {
 
 void ObstaclesController::revive(float obstacleSpeed, float height,
                                  bool upsideDown, int *points) {
-  pain::Movement2dComponent &mc = getComponent<pain::Movement2dComponent>();
-  pain::Transform2dComponent &tc = getComponent<pain::Transform2dComponent>();
-  pain::SpriteComponent &sp = getComponent<pain::SpriteComponent>();
+  cmp::Mov2d &mc = getComponent<cmp::Mov2d>();
+  cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
+  cmp::Sprite &sp = getComponent<cmp::Sprite>();
   pain::TriangleShape &ts = std::get<pain::TriangleShape>(sp.m_shape);
   m_points = points;
   // tgc.m_color = {0.5f, 0.5f, 0.5f, 1.0f};

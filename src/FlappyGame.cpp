@@ -15,22 +15,22 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
       pain::TextureManager::createTexture("resources/textures/Player.png");
 
   pain::Material &playerMaterial = renderAPI.m_materialManager.createMaterial(
-      "Player mat", //
+      "Player Material", //
       pain::MaterialCreationInfo{
           .color = pain::Colors::SkyBlue,
           .params = std::monostate{},
           .shader = defaultShader,
           .texture = playerTexture,
-          .name = "Player Material" //
       } //
   );
 
   pain::Material &obstacleMaterial = renderAPI.m_materialManager.createMaterial(
-      "Obstacle", //
-      pain::MaterialCreationInfo{.color = pain::Colors::SkyBlue,
-                                 .params = std::monostate{},
-                                 .shader = obstacleShader,
-                                 .name = "Obstacle Material"} //
+      "Obstacle Material", //
+      pain::MaterialCreationInfo{
+          .color = pain::Colors::SkyBlue,
+          .params = std::monostate{},
+          .shader = obstacleShader,
+      } //
   );
   reg::Entity player = createPlayer(scene, playerMaterial);
   PlayerController *pc = &scene.getNativeScript<PlayerController>(player);
@@ -108,7 +108,7 @@ void FlappyGame::onCreate() {
 void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime) {
 
   m_waveColor =
-      fmod(m_waveColor + m_colorInterval * currentTime.getSecondsf(), 360.F);
+      m_waveColor + fmod(m_colorInterval * currentTime.getSecondsf(), 360.F);
 
   const auto waveColorRadians = glm::radians(m_waveColor);
   // change obstacle color
@@ -179,11 +179,11 @@ glm::vec2 FlappyGame::projection(const std::array<glm::vec2, T> &shape,
 }
 
 bool FlappyGame::checkIntersection(const ObstaclesController &obstacle) {
-  auto &ptc = m_playerController->getComponent<pain::Transform2dComponent>();
-  auto &prc = m_playerController->getComponent<pain::RotationComponent>();
-  auto &psc = m_playerController->getComponent<pain::SpriteComponent>();
-  auto &otc = obstacle.getComponent<pain::Transform2dComponent>();
-  auto &osc = obstacle.getComponent<pain::SpriteComponent>();
+  auto &ptc = m_playerController->getComponent<cmp::Pos2d>();
+  auto &prc = m_playerController->getComponent<cmp::Rot>();
+  auto &psc = m_playerController->getComponent<cmp::Sprite>();
+  auto &otc = obstacle.getComponent<cmp::Pos2d>();
+  auto &osc = obstacle.getComponent<cmp::Sprite>();
 
   // get quad vertices
   constexpr glm::vec4 quadVertexPositions[4] = {

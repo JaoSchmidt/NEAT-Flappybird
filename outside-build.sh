@@ -3,15 +3,30 @@
 set -euo pipefail
 trap 'trap - INT TERM; kill 0; exit 130' INT TERM
 
-#VOLUME=45536
+SKIP_BUILD=0
+LOCAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --skip) SKIP_BUILD=1; shift ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+if [[ "$SKIP_BUILD" == "1" ]]; then
+    echo "Skipping build (SKIP_BUILD=1)"
+    
+    rsync -av  "${LOCAL_DIR}/Engine/Pain/resources/" "${LOCAL_DIR}/resources/"
+    rsync -av "${LOCAL_DIR}/Engine/Example/PainlessEditor/resources/" "${LOCAL_DIR}/resources/"
+    rsync -av --chmod=F444,D775 "${LOCAL_DIR}/resources/" "${LOCAL_DIR}/build/resources/"
+    exit 0
+fi
+
 VOLUME=65536
 SERVER="192.168.200.105"
 LOCAL_USER="jaoschmidt"
 REMOTE_USER="admin"
 PROJECT_DIR="Flappybird"
 
-
-LOCAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PASSWORD=$LOCAL_DIR/PASSWORD
 
 REMOTE_SRC="/home/${REMOTE_USER}/projects/${PROJECT_DIR}"

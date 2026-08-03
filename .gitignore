@@ -10,6 +10,7 @@ resources/default
 resources/scripts/lua_types
 resources/scripts/.luarc.json
 resources/internalConfig.ini
+a.diff
 .editorconfig
 .ignore
 .cache

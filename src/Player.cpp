@@ -5,37 +5,39 @@
 #include <cstdlib>
 #include <unistd.h>
 
-reg::Entity createPlayer(pain::Scene &scene, pain::Material &m) {
+reg::Entity createPlayer(pain::Scene &scene, pain::Material &m)
+{
 
   reg::Entity entity = scene.createEntity("Player");
-  scene.createComponents(
-      entity, cmp::Pos2d{glm::vec2(DEFAULTXPOS, 0.0F)},
-      cmp::Mov2d{glm::vec2(0.F, 0.0F), 1.0F}, //
-      cmp::Material::create(m),                    //
-      cmp::Script{},                         //
-      cmp::ParticleSpray::create({
-          .interval = pain::DeltaTime::oneSecond() / 8,
-          .randAngleFactor = 20.F,
-          .autoEmit = false,
-          .capacity = 100,
-      }),
-      cmp::Rot{315.F, glm::vec3(0.F, 1.F, 0.F)},     //
-      cmp::Sprite::create({.layer = pain::RenderLayer::E, //
-                                     .shape = pain::RectShape{}})); //
+  scene.createComponents(entity, cmp::Pos2d{glm::vec2(DEFAULTXPOS, 0.0F)},
+                         cmp::Mov2d{glm::vec2(0.F, 0.0F), 1.0F}, //
+                         cmp::Material::create(m),               //
+                         cmp::Script{},                          //
+                         cmp::ParticleSpray::create({
+                             .interval = pain::DeltaTime::oneSecond() / 8,
+                             .randAngleFactor = 20.F,
+                             .autoEmit = false,
+                             .capacity = 100,
+                         }),
+                         cmp::Rot{315.F, glm::vec3(0.F, 1.F, 0.F)},          //
+                         cmp::Sprite::create({.layer = pain::RenderLayer::E, //
+                                              .shape = pain::RectShape{}})); //
   pain::Scene::emplaceScript<PlayerController>(entity, scene);
   return entity;
 };
 
 PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene)
-    : pain::WorldObject(entity, scene) {}
+    : pain::WorldObject(entity, scene)
+{
+}
 
-void PlayerController::onCreate() {
+void PlayerController::onCreate()
+{
   cmp::Mov2d &mc = getComponent<cmp::Mov2d>();
   mc.m_rotationSpeed = 0.0F;
   m_dampingFactor = 50.F;
   m_emissionInterval = 0.02F;
-  cmp::ParticleSpray &psc =
-      getComponent<cmp::ParticleSpray>();
+  cmp::ParticleSpray &psc = getComponent<cmp::ParticleSpray>();
   psc.lifeTime = pain::DeltaTime::oneMilliSecond() * 700;
   psc.randSizeFactor = 1.F;
   psc.sizeChangeSpeed = 0.15F;
@@ -57,16 +59,15 @@ void PlayerController::onCreate() {
 }
 
 void PlayerController::onRender(pain::RenderContext &renderAPI,
-                                 pain::DeltaTime currentTime) {
+                                pain::DeltaTime currentTime)
+{
 
   UNUSED(renderAPI)
-  
-  const cmp::Pos2d &tc =
-      getComponent<cmp::Pos2d>();
+
+  const cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
   const cmp::Rot &rc = getComponent<cmp::Rot>();
 
-  cmp::ParticleSpray &psc =
-      getComponent<cmp::ParticleSpray>();
+  cmp::ParticleSpray &psc = getComponent<cmp::ParticleSpray>();
   const Uint8 *state = SDL_GetKeyboardState(NULL);
   if (state[SDL_SCANCODE_SPACE]) {
 
@@ -93,7 +94,8 @@ void PlayerController::onRender(pain::RenderContext &renderAPI,
   }
 }
 
-void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
+void PlayerController::onUpdate(pain::DeltaTime deltaTime)
+{
   const float deltaTimeSec = deltaTime.getSecondsf();
   cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
   cmp::Mov2d &mc = getComponent<cmp::Mov2d>();
@@ -139,7 +141,8 @@ void PlayerController::onUpdate(pain::DeltaTime deltaTime) {
   }
 }
 
-void PlayerController::resetPosition() {
+void PlayerController::resetPosition()
+{
   cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
   cmp::Mov2d &mc = getComponent<cmp::Mov2d>();
   cmp::Rot &rc = getComponent<cmp::Rot>();

@@ -20,7 +20,8 @@ constexpr std::string_view materialBackground = "GraphBackground";
 // score, deaths, generation, species
 
 GraphRender::Layer::Layer(int layer, std::vector<int> nodes)
-    : m_nodes(std::move(nodes)) {
+    : m_nodes(std::move(nodes))
+{
   constexpr float n = SPACE_BETWEEN_NODES;
   constexpr float l = SPACE_BETWEEN_LAYERS;
   int size = static_cast<int>(m_nodes.size());
@@ -33,7 +34,8 @@ GraphRender::Layer::Layer(int layer, std::vector<int> nodes)
 }
 
 reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
-                                reg::Entity camEntity) {
+                                reg::Entity camEntity)
+{
   const float zoom = 1.f;
   const glm::vec2 center{0.06f, -1.71f};
 
@@ -81,9 +83,8 @@ reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
       } //
   );
 
-  scene.createComponents(entity, cmp::Pos2d{center},
-                         cmp::Script{} //
-  );                                                   //
+  scene.createComponents(entity, cmp::Pos2d{center}, cmp::Script{} //
+  );                                                               //
   //
   pain::Scene::emplaceScript<GraphRender>(
       entity, scene, camEntity,
@@ -93,7 +94,8 @@ reg::Entity GraphRender::create(pain::Scene &scene, pain::RenderApi &renderAPI,
   return entity;
 }
 
-glm::vec2 GraphRender::screenToWorld(int x, int y) {
+glm::vec2 GraphRender::screenToWorld(int x, int y)
+{
   int adjX = x, adjY = y;
 
   if (ImGui::GetCurrentContext() != nullptr) {
@@ -113,13 +115,13 @@ glm::vec2 GraphRender::screenToWorld(int x, int y) {
   return camCC.screenToWorld(adjX, adjY, camTC);
 }
 
-void GraphRender::onEvent(const SDL_Event &event) {
+void GraphRender::onEvent(const SDL_Event &event)
+{
   switch (event.type) {
   case SDL_MOUSEBUTTONDOWN: {
     if (event.button.button != SDL_BUTTON_LEFT)
       break;
-    cmp::Pos2d &transform =
-        getComponent<cmp::Pos2d>();
+    cmp::Pos2d &transform = getComponent<cmp::Pos2d>();
     glm::vec2 mouse = screenToWorld(event.button.x, event.button.y);
 
     glm::vec2 half = glm::vec2(0.5f);
@@ -139,24 +141,19 @@ void GraphRender::onEvent(const SDL_Event &event) {
   case SDL_MOUSEBUTTONUP: {
     if (event.button.button == SDL_BUTTON_LEFT)
       m_dragging = false;
-    const glm::vec2 &center =
-        getComponent<cmp::Pos2d>().m_position;
+    const glm::vec2 &center = getComponent<cmp::Pos2d>().m_position;
     for (int i = 0; i < static_cast<int>(m_circles.size()); i++) {
-      cmp::Pos2d &tc =
-          getComponent<cmp::Pos2d>(m_circles[i]);
+      cmp::Pos2d &tc = getComponent<cmp::Pos2d>(m_circles[i]);
       tc.m_position -= m_centerCache;
       tc.m_position += center;
     }
     for (int i = 0; i < static_cast<int>(m_misc.size()); i++) {
-      cmp::Pos2d &tc =
-          getComponent<cmp::Pos2d>(m_misc[i]);
+      cmp::Pos2d &tc = getComponent<cmp::Pos2d>(m_misc[i]);
       tc.m_position -= m_centerCache;
       tc.m_position += center;
     }
     for (int i = 0; i < m_numEdges; i++) {
-      auto [tc, sc] =
-          getComponents<cmp::Pos2d, cmp::Sprite>(
-              m_lines[i]);
+      auto [tc, sc] = getComponents<cmp::Pos2d, cmp::Sprite>(m_lines[i]);
       tc.m_position -= m_centerCache;
       tc.m_position += center;
       pain::LineShape &line = std::get<pain::LineShape>(sc.m_shape);
@@ -170,8 +167,7 @@ void GraphRender::onEvent(const SDL_Event &event) {
 
   case SDL_MOUSEMOTION: {
     glm::vec2 mouse = screenToWorld(event.motion.x, event.motion.y);
-    cmp::Pos2d &transform =
-        getComponent<cmp::Pos2d>();
+    cmp::Pos2d &transform = getComponent<cmp::Pos2d>();
 
     if (m_dragging) {
       transform.m_position = mouse - m_dragOffset;
@@ -185,17 +181,17 @@ void GraphRender::onEvent(const SDL_Event &event) {
 }
 
 void populateMisc(std::vector<reg::Entity> &misc, pain::Scene &scene,
-                  pain::Application &app, const glm::vec2 &center = {0, 0}) {
+                  pain::Application &app, const glm::vec2 &center = {0, 0})
+{
   pain::MaterialManager &mm = app.getRenderApi().m_materialManager;
 
   reg::Entity entity = scene.createEntity("Graph Frame");
-  scene.createComponents(
-      entity, cmp::Pos2d{center}, cmp::Script{},
-      cmp::Material::create(mm.getMaterial(materialFrame)),
-      cmp::Sprite::create({
-          .layer = pain::RenderLayer::C,
-          .shape = pain::RectShape({4.f, 1.0f}),
-      })); //
+  scene.createComponents(entity, cmp::Pos2d{center}, cmp::Script{},
+                         cmp::Material::create(mm.getMaterial(materialFrame)),
+                         cmp::Sprite::create({
+                             .layer = pain::RenderLayer::C,
+                             .shape = pain::RectShape({4.f, 1.0f}),
+                         })); //
   misc.push_back(entity);
   scene.createComponents(
       entity, cmp::Pos2d{center}, cmp::Script{},
@@ -216,7 +212,8 @@ GraphRender::GraphRender(reg::Entity entity, pain::Scene &scene,
 void GraphRender::generateGraph(pain::Scene &scene,
                                 const std::vector<ConnectionGene> &links,
                                 const std::vector<std::string> &inputNames,
-                                pain::Application &app) {
+                                pain::Application &app)
+{
   std::vector<int> currentInput = {-1, -2, -3, -4, -5};
   // Couple of things to know to help create a beautiful graph:
   // 1. the genome will already be sorted from the first to last layer
@@ -323,13 +320,13 @@ void GraphRender::generateGraph(pain::Scene &scene,
       reg::Entity entity = scene.createEntity("GraphText");
       scene.createComponents(
           entity, //
-          cmp::Pos2d{
-              inputLayer.getCoord(node) -
-              glm::vec2(NODE_DIAMETER, NODE_DIAMETER / 2) + m_centerCache}, //
+          cmp::Pos2d{inputLayer.getCoord(node) -
+                     glm::vec2(NODE_DIAMETER, NODE_DIAMETER / 2) +
+                     m_centerCache}, //
           cmp::Text{.text = inputNames[-node - 1],
-                              .scale = 6.f,
-                              .align = pain::TextAlign::Right,
-                              .font = *m_font} //
+                    .scale = 6.f,
+                    .align = pain::TextAlign::Right,
+                    .font = *m_font} //
       );
       m_misc.push_back(entity);
     }
@@ -340,13 +337,12 @@ void GraphRender::generateGraph(pain::Scene &scene,
     for (int node : layer.m_nodes) {
       reg::Entity entity = scene.createEntity("Graph Node");
       scene.createComponents(
-          entity,                                                           //
+          entity,                                           //
           cmp::Pos2d{layer.getCoord(node) + m_centerCache}, //
-          cmp::Sprite::create(
-              {.layer = pain::RenderLayer::F,
-               .shape = pain::QuadShape{NODE_DIAMETER}}),         //
-          cmp::Material{mm.getMaterial(materialNodes)}, //
-          cmp::ColorIdx{pain::Colors::Black});        //
+          cmp::Sprite::create({.layer = pain::RenderLayer::F,
+                               .shape = pain::QuadShape{NODE_DIAMETER}}), //
+          cmp::Material{mm.getMaterial(materialNodes)},                   //
+          cmp::ColorIdx{pain::Colors::Black});                            //
       m_circles.push_back(entity);
       m_mapNodeEntity.emplace(node, entity);
     }
@@ -365,14 +361,14 @@ void GraphRender::generateGraph(pain::Scene &scene,
     PLOG_I("Line coords: ({},{}) -> ({},{})", TP_VEC2(orig), TP_VEC2(dest));
 
     scene.createComponents(
-        entity,                                           //
+        entity,                           //
         cmp::Pos2d{orig + m_centerCache}, //
         cmp::Sprite::create(
             {.layer = pain::RenderLayer::D,
              .shape = pain::LineShape{dest + m_centerCache, thickness}}), //
         cmp::Material{mm.getMaterial(materialLine)},
         cmp::ColorIdx{pain::Colors::PastelGrey} //
-    );                                                      //
+    );                                          //
     m_lines.push_back(entity);
   }
   m_maxWeight = maxWeight;
@@ -381,7 +377,8 @@ void GraphRender::generateGraph(pain::Scene &scene,
 
 void GraphRender::updateWeights(
     const std::unordered_map<int, NodeInput> &weights,
-    const std::vector<double> &inputs) {
+    const std::vector<double> &inputs)
+{
   for (const auto [node, entity] : m_mapNodeEntity) {
     pain::Color &color = getComponent<cmp::ColorIdx>(entity).color;
     double weight = weights.at(node).outputValue;

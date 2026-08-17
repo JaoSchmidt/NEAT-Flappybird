@@ -4,7 +4,8 @@
 #include <cstddef>
 
 // Calculates if should press space or not
-bool Individual::fit(const std::vector<double> &inputs) {
+bool Individual::fit(const std::vector<double> &inputs)
+{
 
   // std::ostringstream oss;
   // oss << std::fixed << std::setprecision(8);
@@ -18,7 +19,8 @@ bool Individual::fit(const std::vector<double> &inputs) {
 
   return jump;
 }
-bool Individual::fit(const std::vector<double> &inputs, GraphRender &gr) {
+bool Individual::fit(const std::vector<double> &inputs, GraphRender &gr)
+{
 
   // std::ostringstream oss;
   // oss << std::fixed << std::setprecision(8);
@@ -127,7 +129,8 @@ Individual Individual::crossover(
   return offspring;
 }
 
-double Individual::calculateDelta(const Individual &other) const {
+double Individual::calculateDelta(const Individual &other) const
+{
   // Coefficients from the configuration
   double c1 = m_config.m_c1; // Assuming this is where c1 is defined
   double c2 = m_config.m_c2; // Example value for c2, adjust as necessary
@@ -172,7 +175,8 @@ double Individual::calculateDelta(const Individual &other) const {
   return delta;
 }
 
-void Individual::mutateAddNeuron() {
+void Individual::mutateAddNeuron()
+{
   if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probAddNode) {
     return; // Mutation does not occur
   }
@@ -193,7 +197,8 @@ void Individual::mutateAddNeuron() {
                    m_config.m_numOutputs);
 }
 
-void Individual::mutateAddLink() {
+void Individual::mutateAddLink()
+{
   if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probAddConn) {
     return; // Mutation does not occur
   }
@@ -248,7 +253,8 @@ void Individual::mutateAddLink() {
   }
 }
 
-void Individual::mutateRemoveNeuron() {
+void Individual::mutateRemoveNeuron()
+{
   if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probRmNode) {
     return; // Mutation does not occur
   }
@@ -267,7 +273,8 @@ void Individual::mutateRemoveNeuron() {
   m_genome.removeNode(selectedNeuron, m_config.m_numInputs);
 }
 
-void Individual::mutateRemoveLink() {
+void Individual::mutateRemoveLink()
+{
   if (m_rng.uniform<double>(0.0, 1.0) > m_config.m_probRmConn) {
     return; // Mutation does not occur
   }
@@ -285,7 +292,8 @@ void Individual::mutateRemoveLink() {
   m_genome.removeConnection(selectedLink, m_config.m_numInputs);
 }
 
-void Individual::nonStructuralMutate() {
+void Individual::nonStructuralMutate()
+{
   // Mutate connection weights
   for (auto &link : m_genome.m_links) {
     if (m_rng.uniform<double>(0.0, 1.0) < m_config.m_mutationRate) {

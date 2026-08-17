@@ -4,7 +4,8 @@
 
 std::tuple<PlayerController *, pain::Material &,
            std::vector<ObstaclesController *>>
-FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
+FlappyGame::createHelper(pain::Scene &scene, pain::Application &app)
+{
   pain::RenderApi &renderAPI = app.getRenderApi();
   pain::Shader &obstacleShader = renderAPI.m_shaderManager.getDefaultShader(
       pain::DefaultShader::SimpleTriangles);
@@ -45,7 +46,8 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app) {
   return {pc, obstacleMaterial, std::move(obstacles)};
 }
 
-reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app) {
+reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app)
+{
   const int w = 1024;
   const int h = 768;
 
@@ -64,11 +66,13 @@ FlappyGame::FlappyGame(reg::Entity entity, pain::Scene &scene,
     : pain::WorldObject(entity, scene), m_playerController(pc),
       m_obstacles(std::move(obc)), m_obstaclesMaterial(om), m_app(a) {};
 
-void FlappyGame::changeObstaclesColors(pain::Color color) {
+void FlappyGame::changeObstaclesColors(pain::Color color)
+{
   m_obstaclesMaterial.m_color = color;
 }
 
-void FlappyGame::onCreate() {
+void FlappyGame::onCreate()
+{
 
   m_panelID = painless::customPanel::addToPanel(
       "Controller",
@@ -105,7 +109,8 @@ void FlappyGame::onCreate() {
       2);
 }
 
-void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime) {
+void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime)
+{
 
   m_waveColor =
       m_waveColor + fmod(m_colorInterval * currentTime.getSecondsf(), 360.F);
@@ -119,7 +124,8 @@ void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime) {
   m_obstaclesMaterial.m_color = color;
 }
 
-void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
+void FlappyGame::onUpdate(pain::DeltaTime deltaTime)
+{
   if (m_isRunning) {
     // Overall game
     // 1. if obstacle is outside camera, call onDestroy
@@ -147,7 +153,8 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime) {
   }
 }
 
-void FlappyGame::afterLosing() {
+void FlappyGame::afterLosing()
+{
   m_loses++;
   m_points = 0;
   // reset Player position
@@ -157,7 +164,8 @@ void FlappyGame::afterLosing() {
     m_obstacles[i]->revive(0, 0, false, &m_points);
 }
 
-void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown) {
+void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown)
+{
   const float height =
       upsideDown ? sin(randomAngle) * 0.7F + 0.75F + m_obstaclesSpacing
                  : sin(randomAngle) * 0.7F - 1.25F;
@@ -167,7 +175,8 @@ void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown) {
 
 template <std::size_t T>
 glm::vec2 FlappyGame::projection(const std::array<glm::vec2, T> &shape,
-                                 const glm::vec2 &axis) {
+                                 const glm::vec2 &axis)
+{
   float min = glm::dot(shape[0], axis);
   float max = min;
   for (size_t i = 1; i < shape.size(); i++) {
@@ -178,7 +187,8 @@ glm::vec2 FlappyGame::projection(const std::array<glm::vec2, T> &shape,
   return {min, max};
 }
 
-bool FlappyGame::checkIntersection(const ObstaclesController &obstacle) {
+bool FlappyGame::checkIntersection(const ObstaclesController &obstacle)
+{
   auto &ptc = m_playerController->getComponent<cmp::Pos2d>();
   auto &prc = m_playerController->getComponent<cmp::Rot>();
   auto &psc = m_playerController->getComponent<cmp::Sprite>();

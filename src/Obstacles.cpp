@@ -1,16 +1,15 @@
 #include "Obstacles.h"
 #include "Player.h"
 
-reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
+reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m)
+{
 
   reg::Entity e = scene.createEntity("Obstacle");
   scene.createComponents(
       e, //
-      cmp::Pos2d(glm::vec3(2.0F, -0.5F, 0.F)),
-      cmp::Mov2d(),
-      cmp::Sprite::create(
-          {.layer = pain::RenderLayer::B,
-           .shape = pain::TriangleShape{0.8F, 2.00F}}),
+      cmp::Pos2d(glm::vec3(2.0F, -0.5F, 0.F)), cmp::Mov2d(),
+      cmp::Sprite::create({.layer = pain::RenderLayer::B,
+                           .shape = pain::TriangleShape{0.8F, 2.00F}}),
       cmp::Material::create(m), //
       cmp::Script{});
 
@@ -19,9 +18,9 @@ reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m) {
   return e;
 }
 
-void ObstaclesController::onUpdate(pain::DeltaTime _) {
-  const cmp::Pos2d &tc =
-      getComponent<cmp::Pos2d>();
+void ObstaclesController::onUpdate(pain::DeltaTime _)
+{
+  const cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
   if (tc.m_position.x < DEFAULTXPOS && m_isUpsideDown && m_canCountPoints) {
     (*m_points)++;
     m_canCountPoints = false;
@@ -29,7 +28,8 @@ void ObstaclesController::onUpdate(pain::DeltaTime _) {
 }
 
 void ObstaclesController::revive(float obstacleSpeed, float height,
-                                 bool upsideDown, int *points) {
+                                 bool upsideDown, int *points)
+{
   cmp::Mov2d &mc = getComponent<cmp::Mov2d>();
   cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
   cmp::Sprite &sp = getComponent<cmp::Sprite>();

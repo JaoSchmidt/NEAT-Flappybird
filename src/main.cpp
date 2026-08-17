@@ -9,7 +9,8 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
-pain::Application *pain::createApplication() {
+pain::Application *pain::createApplication()
+{
   PLOG_I("Reading config files");
   // Retrieve the context the player will alter when using the launcher
   IniConfig ini;
@@ -68,14 +69,17 @@ pain::Application *pain::createApplication() {
 }
 
 #ifdef PLATFORM_IS_LINUX
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   UNUSED(argc)
   UNUSED(argv)
 #elif defined PLATFORM_IS_WINDOWS
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
-                   int nCmdShow) {
+                   int nCmdShow)
+{
 #else
-int main() {
+int main()
+{
 #endif
   bool isSettingsGuiNeeded = pain::Pain::initiateIni();
   EndGameFlags flags;

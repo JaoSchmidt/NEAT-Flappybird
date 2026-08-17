@@ -38,7 +38,8 @@ struct ConnectionGene {
   ConnectionGene(ConnectionGene &&o) = default;
   ConnectionGene &operator=(ConnectionGene &&o) = default;
 
-  ConnectionGene clone() const {
+  ConnectionGene clone() const
+  {
     return ConnectionGene(m_InNodeId, m_OutNodeId, m_weight, m_enable,
                           m_innovation);
   }
@@ -99,18 +100,19 @@ private:
 public:
   ~Genome() = default;
   Genome(std::vector<InnovationStatic> &globalInnovations)
-      : m_neurons{}, m_links{}, m_globalInnovations{globalInnovations} {}
+      : m_neurons{}, m_links{}, m_globalInnovations{globalInnovations} {};
 
   Genome(std::vector<NodeGene> neurons, std::vector<ConnectionGene> links,
          std::vector<InnovationStatic> &globalInnovations)
       : m_neurons(std::move(neurons)), m_links(std::move(links)),
-        m_globalInnovations(globalInnovations) {}
+        m_globalInnovations(globalInnovations) {};
 
   // Copy Constructor
   Genome(const Genome &other)
       : m_neurons(other.m_neurons), m_links(other.m_links),
-        m_globalInnovations(other.m_globalInnovations) {}
-  Genome &operator=(const Genome &other) {
+        m_globalInnovations(other.m_globalInnovations) {};
+  Genome &operator=(const Genome &other)
+  {
     if (this != &other) {
       m_neurons = other.m_neurons;
       m_links = other.m_links;
@@ -122,8 +124,9 @@ public:
   Genome(Genome &&other) noexcept
       : m_neurons(std::move(other.m_neurons)),
         m_links(std::move(other.m_links)),
-        m_globalInnovations(other.m_globalInnovations) {}
-  Genome &operator=(Genome &&other) noexcept {
+        m_globalInnovations(other.m_globalInnovations) {};
+  Genome &operator=(Genome &&other) noexcept
+  {
     if (this != &other) {
       m_neurons = std::move(other.m_neurons);
       m_links = std::move(other.m_links);

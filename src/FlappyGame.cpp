@@ -64,7 +64,9 @@ FlappyGame::FlappyGame(reg::Entity entity, pain::Scene &scene,
                        std::vector<ObstaclesController *> obc,
                        pain::Application &a)
     : pain::WorldObject(entity, scene), m_playerController(pc),
-      m_obstacles(std::move(obc)), m_obstaclesMaterial(om), m_app(a) {};
+      m_obstaclesMaterial(om), m_app(a) {
+  m_playerController->m_obstacles = std::move(obc);
+};
 
 void FlappyGame::changeObstaclesColors(pain::Color color)
 {
@@ -146,8 +148,10 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime)
       reviveObstacle(m_index, randAngle, false);
     }
 
-    for (char i = 0; i < s_numberOfObstacles; i++) {
-      if (checkIntersection(*m_obstacles[i]))
+    auto closest = m_playerController->getClosestObstacles();
+    for (int idx : closest) {
+      if (idx >= 0 && m_playerController->checkIntersection(
+                          *m_playerController->m_obstacles[idx]))
         afterLosing();
     }
   }
@@ -161,7 +165,7 @@ void FlappyGame::afterLosing()
   m_playerController->resetPosition();
   // clear obstacles
   for (char i = 0; i < s_numberOfObstacles; i++)
-    m_obstacles[i]->revive(0, 0, false, &m_points);
+    m_playerController->m_obstacles[i]->revive(0, 0, false, &m_points);
 }
 
 void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown)
@@ -169,88 +173,8 @@ void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown)
   const float height =
       upsideDown ? sin(randomAngle) * 0.7F + 0.75F + m_obstaclesSpacing
                  : sin(randomAngle) * 0.7F - 1.25F;
-  m_obstacles.at(index)->revive(m_defaultObstacleSpeed, height, upsideDown,
+  m_playerController->m_obstacles.at(index)->revive(m_defaultObstacleSpeed, height, upsideDown,
                                 &m_points);
 }
 
-template <std::size_t T>
-glm::vec2 FlappyGame::projection(const std::array<glm::vec2, T> &shape,
-                                 const glm::vec2 &axis)
-{
-  float min = glm::dot(shape[0], axis);
-  float max = min;
-  for (size_t i = 1; i < shape.size(); i++) {
-    float projection = glm::dot(shape[i], axis);
-    min = std::min(min, projection);
-    max = std::max(max, projection);
-  }
-  return {min, max};
-}
 
-bool FlappyGame::checkIntersection(const ObstaclesController &obstacle)
-{
-  auto &ptc = m_playerController->getComponent<cmp::Pos2d>();
-  auto &prc = m_playerController->getComponent<cmp::Rot>();
-  auto &psc = m_playerController->getComponent<cmp::Sprite>();
-  auto &otc = obstacle.getComponent<cmp::Pos2d>();
-  auto &osc = obstacle.getComponent<cmp::Sprite>();
-
-  // get quad vertices
-  constexpr glm::vec4 quadVertexPositions[4] = {
-      glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
-      glm::vec4(0.5f, -0.5f, 0.f, 1.f),
-      glm::vec4(0.5f, 0.5f, 0.f, 1.f),
-      glm::vec4(-0.5f, 0.5f, 0.f, 1.f),
-  };
-
-  const pain::RectShape &qs = std::get<pain::RectShape>(psc.m_shape);
-  const glm::mat4 transform = pain::Renderer2d::getTransform(
-      ptc.m_position, qs.size, prc.m_rotationRadians);
-
-  std::array<glm::vec2, 4> qVertices = {
-      transform * quadVertexPositions[0],
-      transform * quadVertexPositions[1],
-      transform * quadVertexPositions[2],
-      transform * quadVertexPositions[3],
-  };
-
-  // triangle
-  constexpr glm::vec4 triVertexPositions[3] = {
-      glm::vec4(0.0f, 0.5f, 0.f, 1.f),
-      glm::vec4(0.5f, -0.5f, 0.f, 1.f),
-      glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
-  };
-  const pain::TriangleShape &ts = std::get<pain::TriangleShape>(osc.m_shape);
-  const glm::mat4 transformTri =
-      pain::Renderer2d::getTransform(otc.m_position, {ts.base, ts.height});
-  const std::array<glm::vec2, 3> tVertices = {
-      transformTri * triVertexPositions[0], //
-      transformTri * triVertexPositions[1], //
-      transformTri * triVertexPositions[2], //
-  };
-
-  std::vector<glm::vec2> axes;
-  for (size_t i = 0; i < 4; i++) {
-    glm::vec2 edge = qVertices[(i + 1) % 4] - qVertices[i];
-    glm::vec2 axis(-edge.y, edge.x); // Perpendicular to the edge
-    axis = glm::normalize(axis);
-    axes.push_back(axis);
-  }
-  for (size_t i = 0; i < 3; i++) {
-    glm::vec2 edge = tVertices[(i + 1) % 3] - tVertices[i];
-    glm::vec2 axis(-edge.y, edge.x);
-    axis = glm::normalize(axis);
-    axes.push_back(axis);
-  }
-  // Perform SAT check on all axes
-  for (const glm::vec2 &axis : axes) {
-    auto boundA = projection(qVertices, axis);
-    auto boundB = projection(tVertices, axis);
-
-    // Check for overlap
-    if (boundA.y < boundB.x || boundB.y < boundA.x)
-      return false; // No collision
-  }
-
-  return true;
-}

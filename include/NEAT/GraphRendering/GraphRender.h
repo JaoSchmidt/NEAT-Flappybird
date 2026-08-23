@@ -1,6 +1,7 @@
 #include "NEAT/NN.h"
 
-class GraphRender : public pain::WorldObject {
+class GraphRender : public pain::WorldObject
+{
   struct Layer {
     std::map<int, glm::vec2> m_coord;
     std::vector<int> m_nodes;
@@ -27,8 +28,7 @@ public:
                      const std::vector<std::string> &inputNames,
                      pain::Application &app);
 
-  void updateWeights(const std::unordered_map<int, NodeInput> &weights,
-                     const std::vector<double> &inputs);
+  void updateWeights(const std::unordered_map<int, NodeInput> &weights);
 
 private:
   std::map<int, reg::Entity> m_mapNodeEntity;

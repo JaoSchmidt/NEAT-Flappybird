@@ -41,14 +41,12 @@ class FlappyGame : public pain::WorldObject {
 
   PlayerController* m_playerController;
 
-  std::vector<ObstaclesController*> m_obstacles = {};
   pain::Material& m_obstaclesMaterial;
 
   pain::Application& m_app;
 
   void changeObstaclesColors(pain::Color color);
   void reviveObstacle(int index, float random, bool upsideDown);
-  bool checkIntersection(const ObstaclesController& obstacle);
   void afterLosing();
   void clearObstacles();
 
@@ -56,8 +54,4 @@ class FlappyGame : public pain::WorldObject {
              std::vector<
                  ObstaclesController*>> static createHelper(pain::Scene& scene,
                                                             pain::Application&);
-
-  template <std::size_t T>
-  glm::vec2 projection(const std::array<glm::vec2, T>& shape,
-                       const glm::vec2& axis);
 };

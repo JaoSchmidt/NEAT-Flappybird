@@ -2,7 +2,10 @@
 
 #include <pain.h>
 #include <painless.h>
+#include <array>
 #define DEFAULTXPOS -0.8f
+
+struct ObstaclesController;
 
 reg::Entity createPlayer(pain::Scene &scene, pain::Material &m);
 
@@ -17,6 +20,10 @@ public:
 
   void resetPosition();
 
+  bool checkIntersection(const ObstaclesController& obstacle);
+  int getClosestObstacle();
+  std::array<int, 2> getClosestObstacles();
+
   // HACK: This exists because I can figure out how push events w/SDL_PushEvent
   bool m_automaticJump = false;
 
@@ -24,6 +31,9 @@ public:
 
   static constexpr float MAX_HEIGHT = 1.f;
   static constexpr float MIN_HEIGHT = -1.f;
+
+  std::vector<ObstaclesController*> m_obstacles = {};
+  int m_closestObsIndex = 0;
 
 private:
   // physics
@@ -36,9 +46,12 @@ private:
   // GUI
   bool m_displayUpdates = false;
   int m_panelID = -1;
-  // bool m_isRendering = false;
 
   // particle emission
   float m_timeSinceLastEmission = 0.f;
   float m_emissionInterval = 0.02f;
+
+  template <std::size_t T>
+  glm::vec2 projection(const std::array<glm::vec2, T>& shape,
+                       const glm::vec2& axis);
 };

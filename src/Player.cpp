@@ -1,4 +1,5 @@
 #include "Player.h"
+#include "Obstacles.h"
 #include "pain.h"
 #include <algorithm>
 #include <cmath>
@@ -20,7 +21,7 @@ reg::Entity createPlayer(pain::Scene &scene, pain::Material &m)
                              .capacity = 100,
                          }),
                          cmp::Rot{315.F, glm::vec3(0.F, 1.F, 0.F)},          //
-                         cmp::Sprite::create({.layer = pain::RenderLayer::E, //
+                         cmp::Sprite::create({.layer = pain::RenderLayer::B, //
                                               .shape = pain::RectShape{}})); //
   pain::Scene::emplaceScript<PlayerController>(entity, scene);
   return entity;
@@ -156,3 +157,121 @@ void PlayerController::resetPosition()
 }
 
 // void PlayerController::onDestroy() { delete m_pIG; }
+
+template <std::size_t T>
+glm::vec2 PlayerController::projection(const std::array<glm::vec2, T> &shape,
+                                       const glm::vec2 &axis)
+{
+  float min = glm::dot(shape[0], axis);
+  float max = min;
+  for (size_t i = 1; i < shape.size(); i++) {
+    float projection = glm::dot(shape[i], axis);
+    min = std::min(min, projection);
+    max = std::max(max, projection);
+  }
+  return {min, max};
+}
+
+bool PlayerController::checkIntersection(const ObstaclesController &obstacle)
+{
+  auto &ptc = getComponent<cmp::Pos2d>();
+  auto &prc = getComponent<cmp::Rot>();
+  auto &psc = getComponent<cmp::Sprite>();
+  auto &otc = obstacle.getComponent<cmp::Pos2d>();
+  auto &osc = obstacle.getComponent<cmp::Sprite>();
+
+  // get quad vertices
+  constexpr glm::vec4 quadVertexPositions[4] = {
+      glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
+      glm::vec4(0.5f, -0.5f, 0.f, 1.f),
+      glm::vec4(0.5f, 0.5f, 0.f, 1.f),
+      glm::vec4(-0.5f, 0.5f, 0.f, 1.f),
+  };
+
+  const pain::RectShape &qs = std::get<pain::RectShape>(psc.m_shape);
+  const glm::mat4 transform = pain::Renderer2d::getTransform(
+      ptc.m_position, qs.size, prc.m_rotationRadians);
+
+  std::array<glm::vec2, 4> qVertices = {
+      transform * quadVertexPositions[0],
+      transform * quadVertexPositions[1],
+      transform * quadVertexPositions[2],
+      transform * quadVertexPositions[3],
+  };
+
+  // triangle
+  constexpr glm::vec4 triVertexPositions[3] = {
+      glm::vec4(0.0f, 0.5f, 0.f, 1.f),
+      glm::vec4(0.5f, -0.5f, 0.f, 1.f),
+      glm::vec4(-0.5f, -0.5f, 0.f, 1.f),
+  };
+  const pain::TriangleShape &ts = std::get<pain::TriangleShape>(osc.m_shape);
+  const glm::mat4 transformTri =
+      pain::Renderer2d::getTransform(otc.m_position, {ts.base, ts.height});
+  const std::array<glm::vec2, 3> tVertices = {
+      transformTri * triVertexPositions[0],
+      transformTri * triVertexPositions[1],
+      transformTri * triVertexPositions[2],
+  };
+
+  std::vector<glm::vec2> axes;
+  for (size_t i = 0; i < 4; i++) {
+    glm::vec2 edge = qVertices[(i + 1) % 4] - qVertices[i];
+    glm::vec2 axis(-edge.y, edge.x);
+    axis = glm::normalize(axis);
+    axes.push_back(axis);
+  }
+  for (size_t i = 0; i < 3; i++) {
+    glm::vec2 edge = tVertices[(i + 1) % 3] - tVertices[i];
+    glm::vec2 axis(-edge.y, edge.x);
+    axis = glm::normalize(axis);
+    axes.push_back(axis);
+  }
+  for (const glm::vec2 &axis : axes) {
+    auto boundA = projection(qVertices, axis);
+    auto boundB = projection(tVertices, axis);
+    if (boundA.y < boundB.x || boundB.y < boundA.x)
+      return false;
+  }
+  return true;
+}
+
+int PlayerController::getClosestObstacle()
+{
+  const float &currentX =
+      m_obstacles[m_closestObsIndex]->getComponent<cmp::Pos2d>().m_position.x;
+  if (currentX != 2.f)
+    return m_closestObsIndex;
+  float closestX = 999999.f;
+  int closestIndex = m_closestObsIndex;
+  for (int i = 0; i < static_cast<int>(m_obstacles.size()); i++) {
+    const float &x = m_obstacles[i]->getComponent<cmp::Pos2d>().m_position.x;
+    if (x < closestX) {
+      closestIndex = i;
+      closestX = x;
+    }
+  }
+  return closestIndex;
+}
+
+std::array<int, 2> PlayerController::getClosestObstacles()
+{
+  float closest1 = 999999.f;
+  float closest2 = 999999.f;
+  int idx1 = -1;
+  int idx2 = -1;
+
+  for (int i = 0; i < static_cast<int>(m_obstacles.size()); i++) {
+    const float x = m_obstacles[i]->getComponent<cmp::Pos2d>().m_position.x;
+    if (x < closest1) {
+      closest2 = closest1;
+      idx2 = idx1;
+      closest1 = x;
+      idx1 = i;
+    } else if (x < closest2) {
+      closest2 = x;
+      idx2 = i;
+    }
+  }
+  return {idx1, idx2};
+}

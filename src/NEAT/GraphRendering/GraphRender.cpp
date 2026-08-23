@@ -186,12 +186,13 @@ void populateMisc(std::vector<reg::Entity> &misc, pain::Scene &scene,
   pain::MaterialManager &mm = app.getRenderApi().m_materialManager;
 
   reg::Entity entity = scene.createEntity("Graph Frame");
-  scene.createComponents(entity, cmp::Pos2d{center}, cmp::Script{},
-                         cmp::Material::create(mm.getMaterial(materialFrame)),
-                         cmp::Sprite::create({
-                             .layer = pain::RenderLayer::C,
-                             .shape = pain::RectShape({4.f, 1.0f}),
-                         })); //
+  scene.createComponents( //
+      entity, cmp::Pos2d{center}, cmp::Script{},
+      cmp::Material::create(mm.getMaterial(materialFrame)),
+      cmp::Sprite::create({
+          .layer = pain::RenderLayer::E,
+          .shape = pain::RectShape({4.f, 1.0f}),
+      })); //
   misc.push_back(entity);
   scene.createComponents(
       entity, cmp::Pos2d{center}, cmp::Script{},
@@ -376,8 +377,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
 }
 
 void GraphRender::updateWeights(
-    const std::unordered_map<int, NodeInput> &weights,
-    const std::vector<double> &inputs)
+    const std::unordered_map<int, NodeInput> &weights)
 {
   for (const auto [node, entity] : m_mapNodeEntity) {
     pain::Color &color = getComponent<cmp::ColorIdx>(entity).color;

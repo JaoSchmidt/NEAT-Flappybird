@@ -95,7 +95,7 @@ void Population::onCreate()
     m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng, 0);
   }
   m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
-  m_closestObsIndex = m_index;
+  m_playerController->m_closestObsIndex = m_index;
   worldScene.getNativeScript<GraphRender>(m_graphRender)
       .generateGraph(worldScene, m_individuals[0].getGenome().m_links,
                      inputNames(), m_app);
@@ -118,26 +118,12 @@ void Population::onCreate()
   getScene().createComponents(
       getScene().createEntity("PopulationBox"), cmp::Pos2d::create({{0, 0}}),
       cmp::Sprite{
-          .layer = pain::RenderLayer::G,
-          .m_shape = pain::RectShape{.size = {6.f, 2.4f}} //
+          .layer = pain::RenderLayer::C,
+          .m_shape = pain::RectShape{.size = {6.f, 6.f}} //
       },
       cmp::Material::create(
           mm, "PopulationBox",
           {.color = pain::Colors::Brown, .shader = gameShader}) //
-  );
-  getScene().createComponents(
-      getScene().createEntity("dumbtemp"),
-      cmp::Pos2d::create({{0, PlayerController::MAX_HEIGHT}}),
-      cmp::Sprite{
-          .layer = pain::RenderLayer::G,
-          .m_shape = pain::RectShape{{0.125f, 0.125f}}
-          //
-      },
-      cmp::Material::create(
-          mm, "dumptemp",
-          {.color = pain::Colors::Blue,
-           .shader = m_app.getRenderApi().m_shaderManager.getDefaultShader(
-               pain::DefaultShader::Texture)}) //
   );
 }
 // ================================================================== //
@@ -145,25 +131,6 @@ void Population::onCreate()
 // GAME RELATED FUNCTIONS
 // ================================================================== //
 // ================================================================== //
-
-// ** get index of the closest obstacle to the left of the player
-int Population::getClosestObstacle(float playerPos)
-{
-  const float &currentX =
-      m_obstacles[m_closestObsIndex]->getComponent<cmp::Pos2d>().m_position.x;
-  if (currentX != 2.f)
-    return m_closestObsIndex;
-  float closestX = 999999.f;
-  int closestIndex = m_closestObsIndex;
-  for (int i = 0; i < static_cast<int>(m_obstacles.size()); i++) {
-    const float &x = m_obstacles[i]->getComponent<cmp::Pos2d>().m_position.x;
-    if (x < closestX) {
-      closestIndex = i;
-      closestX = x;
-    }
-  }
-  return closestIndex;
-}
 
 void Population::onUpdate(pain::DeltaTime deltaTime)
 {
@@ -182,28 +149,34 @@ void Population::onUpdate(pain::DeltaTime deltaTime)
   // check if m_points changed
   if (m_points > m_pointsChecker) {
     m_pointsChecker = m_points;
-    m_closestObsIndex = getClosestObstacle(DEFAULTXPOS);
+    m_playerController->m_closestObsIndex =
+        m_playerController->getClosestObstacle();
   }
 
-  // check collision and losing state
-  for (char i = 0; i < s_numberOfObstacles; i++) {
-    ObstaclesController &obstacle = *m_obstacles.at(i);
+  // check collision and losing state using only the two closest obstacles
+  auto closest = m_playerController->getClosestObstacles();
+  for (int idx : closest) {
+    if (idx < 0)
+      continue;
+    ObstaclesController &obstacle = *m_playerController->m_obstacles.at(idx);
     const auto &tc = obstacle.getComponent<cmp::Pos2d>();
-    // no extra life for now
-    if (tc.m_position.x < -0.2F && checkIntersection(obstacle)) {
+    if (tc.m_position.x < -0.2F &&
+        m_playerController->checkIntersection(obstacle)) {
       afterLosing();
       return;
     }
-    // Assuming 300 is
     if (m_points > 300) {
       m_app.setTimeMultiplier(1.);
       m_app.setRendereing(true);
     }
   }
 
-  m_closestObsIndex = getClosestObstacle(DEFAULTXPOS);
+  m_playerController->m_closestObsIndex =
+      m_playerController->getClosestObstacle();
   const glm::vec2 obsPos =
-      m_obstacles[m_closestObsIndex]->getComponent<cmp::Pos2d>().m_position;
+      m_playerController->m_obstacles[m_playerController->m_closestObsIndex]
+          ->getComponent<cmp::Pos2d>()
+          .m_position;
 
   // INPUT VARIABLES, including player and obstacles
   if (m_app.isSimulation()) {
@@ -399,7 +372,6 @@ std::vector<std::string> Population::inputNames()
 Genome Population::createMinimalGenome(int individualIndex)
 {
   std::vector<NodeGene> neurons = {};
-  int outputId = -6;
 
   // inputs
   neurons.reserve(6);
@@ -409,6 +381,7 @@ Genome Population::createMinimalGenome(int individualIndex)
   neurons.emplace_back(-4, m_rng.gaussian<double>()); // playerVy
   neurons.emplace_back(-5, m_rng.gaussian<double>()); // playerRot
   // outputs
+  int outputId = -static_cast<int>(neurons.size());
   neurons.emplace_back(outputId, 0.0);
 
   // links and innovations

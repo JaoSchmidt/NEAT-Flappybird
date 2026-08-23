@@ -4,22 +4,42 @@ set -euo pipefail
 trap 'trap - INT TERM; kill 0; exit 130' INT TERM
 
 SKIP_BUILD=0
+CLEAN=0
 LOCAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --skip) SKIP_BUILD=1; shift ;;
+        --clean) CLEAN=1; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-if [[ "$SKIP_BUILD" == "1" ]]; then
-    echo "Skipping build (SKIP_BUILD=1)"
-    
-    rsync -av  "${LOCAL_DIR}/Engine/Pain/resources/" "${LOCAL_DIR}/resources/"
-    rsync -av "${LOCAL_DIR}/Engine/Example/PainlessEditor/resources/" "${LOCAL_DIR}/resources/"
+
+SOURCE_HASH=$(
+    find "$LOCAL_DIR" \
+        -type d \( \
+            -name .git -o \
+            -name build -o \
+            -name .cache -o \
+            -name external \
+        \) -prune -o \
+        \( -name '*.cpp' -o -name '*.h' \) \
+        -type f -print0 |
+    sort -z |
+    xargs -0 sha256sum |
+    sha256sum |
+    awk '{print $1}'
+)
+BUILD_STAMP="$LOCAL_DIR/.build-source-hash"
+
+if [[ -f "$BUILD_STAMP" ]] && [[ -d "build" ]] && [[ "$(cat "$BUILD_STAMP")" == "$SOURCE_HASH" ]]; then
+    echo "No .cpp/.h changes since last build. Using rsync locally"
+    rsync -av  "${LOCAL_DIR}/Pain/resources/" "${LOCAL_DIR}/resources/"
+    # rsync -av "${LOCAL_DIR}/Example/PainlessEditor/resources/" "${LOCAL_DIR}/resources/"
     rsync -av --chmod=F444,D775 "${LOCAL_DIR}/resources/" "${LOCAL_DIR}/build/resources/"
     exit 0
 fi
+
 
 VOLUME=65536
 SERVER="192.168.200.105"
@@ -56,6 +76,11 @@ docker run --rm \
     build-container \
     bash -c '
         cd ${LOCAL_DIR}
+        cmake --version
+        if [ "${CLEAN}" == "1" ]; then
+            echo "Clean build requested, removing remote build..."
+            rm -rf build
+        fi
         if [ ! -f build/CMakeCache.txt ]; then
             echo "Configuring project..."
             rm -rf build
@@ -89,7 +114,8 @@ sshpass -f${PASSWORD} rsync -az \
     "$LOCAL_DIR/build/"
 
 echo "Build successful."
-
 DBUS="unix:path=/run/user/$(id -u)/bus"
 DBUS_SESSION_BUS_ADDRESS=$DBUS notify-send "Build Complete" "Command succeeded" &
 DBUS_SESSION_BUS_ADDRESS=$DBUS paplay --volume=$VOLUME /usr/share/sounds/freedesktop/stereo/complete.oga &
+
+printf '%s\n' "$SOURCE_HASH" > "$BUILD_STAMP"

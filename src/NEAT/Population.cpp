@@ -61,7 +61,7 @@ void Population::onCreate()
 
   m_config.m_generation = 0;
   m_config.m_populationSize = 150; // Set the population size
-  m_config.m_numInputs = 5;        // Set the number of inputs
+  m_config.m_numInputs = 4;        // Set the number of inputs
   m_config.m_numOutputs = 1;       // Set the number of outputs
 
   // Non-structural mutation parameters
@@ -95,19 +95,16 @@ void Population::onCreate()
     m_individuals.emplace_back(createMinimalGenome(i), m_config, m_rng, 0);
   }
   m_speciesRepresentatives.emplace(0, m_individuals[0].clone());
-  m_playerController->m_closestObsIndex = m_index;
   worldScene.getNativeScript<GraphRender>(m_graphRender)
       .generateGraph(worldScene, m_individuals[0].getGenome().m_links,
-                     inputNames(), m_app);
+                     inputInfos(), m_app);
 
   // PLAYER INPUT ================================================== //
   cmp::Pos2d &ptc = m_playerController->getComponent<cmp::Pos2d>();
   cmp::Mov2d &pmc = m_playerController->getComponent<cmp::Mov2d>();
-  cmp::Rot &prc = m_playerController->getComponent<cmp::Rot>();
 
   m_playerY = &ptc.m_position.y;
   m_playerVy = &pmc.m_velocity.y;
-  m_playerRot = &prc.m_rotationRadians;
 
   // PLAYER BOX ================================================== //
   pain::Shader &gameShader =
@@ -149,43 +146,37 @@ void Population::onUpdate(pain::DeltaTime deltaTime)
   // check if m_points changed
   if (m_points > m_pointsChecker) {
     m_pointsChecker = m_points;
-    m_playerController->m_closestObsIndex =
-        m_playerController->getClosestObstacle();
+    m_playerController->m_closestObsIndexes =
+        m_playerController->getClosestObstacles();
   }
 
   // check collision and losing state using only the two closest obstacles
-  auto closest = m_playerController->getClosestObstacles();
-  for (int idx : closest) {
-    if (idx < 0)
-      continue;
-    ObstaclesController &obstacle = *m_playerController->m_obstacles.at(idx);
-    const auto &tc = obstacle.getComponent<cmp::Pos2d>();
-    if (tc.m_position.x < -0.2F &&
-        m_playerController->checkIntersection(obstacle)) {
-      afterLosing();
-      return;
-    }
-    if (m_points > 300) {
-      m_app.setTimeMultiplier(1.);
-      m_app.setRendereing(true);
-    }
+  ObstaclesIds closest = m_playerController->getClosestObstacles();
+  if (checkIfLost(closest.up))
+    return;
+  if (checkIfLost(closest.down))
+    return;
+  if (m_points > 300) {
+    m_app.setTimeMultiplier(1.);
+    m_app.setRendereing(true);
   }
 
-  m_playerController->m_closestObsIndex =
-      m_playerController->getClosestObstacle();
+  m_playerController->m_closestObsIndexes =
+      m_playerController->getClosestObstacles();
   const glm::vec2 obsPos =
-      m_playerController->m_obstacles[m_playerController->m_closestObsIndex]
+      m_playerController
+          ->m_obstacles[m_playerController->m_closestObsIndexes.down]
           ->getComponent<cmp::Pos2d>()
           .m_position;
 
   // INPUT VARIABLES, including player and obstacles
   if (m_app.isSimulation()) {
     m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
-        {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot});
+        {TP_VEC2(obsPos), *m_playerY, *m_playerVy});
   } else {
     GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
     m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
-        {TP_VEC2(obsPos), *m_playerY, *m_playerVy, *m_playerRot}, gr);
+        {TP_VEC2(obsPos), *m_playerY, *m_playerVy}, gr);
   }
 }
 
@@ -272,7 +263,7 @@ void Population::classifyAllSpecies()
   }
   GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
   gr.generateGraph(worldScene, m_bestIndividual->getGenome().m_links,
-                   inputNames(), m_app);
+                   inputInfos(), m_app);
 }
 
 std::vector<Individual>
@@ -364,9 +355,13 @@ void Population::updateGeneration()
   offspringAndMutate(std::move(selection));
 }
 
-std::vector<std::string> Population::inputNames()
+std::vector<InputInfo> &Population::inputInfos()
 {
-  return {"obstacleX", "obstacleY", "playerY", "playerVy", "playerRot"};
+  static std::vector<InputInfo> inputInfos = {{"obstacleX", 2.f, -1.f},
+                                              {"obstacleY", 1.45f, -1.95},
+                                              {"playerY", 1.f, -1.f},
+                                              {"playerVy", 1.f, -1.f}};
+  return inputInfos;
 }
 
 Genome Population::createMinimalGenome(int individualIndex)
@@ -374,19 +369,18 @@ Genome Population::createMinimalGenome(int individualIndex)
   std::vector<NodeGene> neurons = {};
 
   // inputs
-  neurons.reserve(6);
+  neurons.reserve(5);
   neurons.emplace_back(-1, m_rng.gaussian<double>()); // obstacleX
   neurons.emplace_back(-2, m_rng.gaussian<double>()); // obstacleY
   neurons.emplace_back(-3, m_rng.gaussian<double>()); // playerY
   neurons.emplace_back(-4, m_rng.gaussian<double>()); // playerVy
-  neurons.emplace_back(-5, m_rng.gaussian<double>()); // playerRot
   // outputs
-  int outputId = -static_cast<int>(neurons.size());
+  int outputId = -static_cast<int>(neurons.size() + 1);
   neurons.emplace_back(outputId, 0.0);
 
   // links and innovations
   std::vector<ConnectionGene> links = {};
-  for (int id = 1; id < 6; id++) {
+  for (int id = 1; id < 5; id++) {
     links.emplace_back(-id, outputId, m_rng.gaussian<double>(), true, id);
     if (individualIndex == 0) // excpected to work once
       m_populationInnov.emplace_back(-id, outputId, id - 1);

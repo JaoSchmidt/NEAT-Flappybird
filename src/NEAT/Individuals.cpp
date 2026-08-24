@@ -1,5 +1,6 @@
 #include "NEAT/Individuals.h"
 #include "NEAT/GraphRendering/GraphRender.h"
+#include "NEAT/Population.h"
 #include "pain.h"
 #include <cstddef>
 
@@ -30,7 +31,7 @@ bool Individual::fit(const std::vector<double> &inputs, GraphRender &gr)
   // LOG_T("[{}]", oss.str());
   GenomeOutput out =
       m_genome.run(inputs, m_config.m_numInputs, m_config.m_numOutputs);
-  gr.updateWeights(out.weightsPerNode, inputs);
+  gr.updateWeights(out.weightsPerNode, Population::inputInfos());
   const bool jump = out.outputs[0] >= 0.5;
 
   return jump;

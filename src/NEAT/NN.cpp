@@ -21,7 +21,7 @@ GenomeOutput Genome::run(const std::vector<double> &inputs, int numInputs,
   }
 
   // 2. Process each connection in topological order
-  for (const auto &link : m_links) {
+  for (const ConnectionGene &link : m_links) {
     if (!link.m_enable)
       continue; // Skip disabled links
 

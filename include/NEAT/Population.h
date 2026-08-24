@@ -26,8 +26,9 @@ public:
   NONMOVABLE(Population)
   ~Population() = default;
 
+  static std::vector<InputInfo> &inputInfos();
+
 protected:
-  static std::vector<std::string> inputNames();
 
   pain::Scene &worldScene; // To mess with time multipliers
   // forced delta time equal 1/60
@@ -53,9 +54,8 @@ protected:
   // inputs from player
   float *m_playerY = nullptr;
   float *m_playerVy = nullptr;
-  float *m_playerRot = nullptr;
 
-  int m_pointsChecker = 0;   // detect inputs
+  int m_pointsChecker = 0; // detect inputs
   int m_currentIndIndex = 0;
   Individual *m_bestIndividual = nullptr;
   reg::Entity m_graphRender;

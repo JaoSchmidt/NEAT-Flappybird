@@ -1,7 +1,6 @@
 #include "NEAT/GraphRendering/GraphRender.h"
 #include "Assets/ManagerTexture.h"
 #include "Core.h"
-#include "NEAT/GraphRendering/GraphicNode.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <pain.h>
@@ -212,10 +211,13 @@ GraphRender::GraphRender(reg::Entity entity, pain::Scene &scene,
 
 void GraphRender::generateGraph(pain::Scene &scene,
                                 const std::vector<ConnectionGene> &links,
-                                const std::vector<std::string> &inputNames,
+                                const std::vector<InputInfo> &inputInfos,
                                 pain::Application &app)
 {
-  std::vector<int> currentInput = {-1, -2, -3, -4, -5};
+  std::vector<int> currentInput;
+  currentInput.reserve(inputInfos.size());
+  for (int i = 1; i <= static_cast<int>(inputInfos.size()); i++)
+    currentInput.push_back(-i);
   // Couple of things to know to help create a beautiful graph:
   // 1. the genome will already be sorted from the first to last layer
   // 2. nodes will always have at least 1 link behind them, unless they are
@@ -324,7 +326,7 @@ void GraphRender::generateGraph(pain::Scene &scene,
           cmp::Pos2d{inputLayer.getCoord(node) -
                      glm::vec2(NODE_DIAMETER, NODE_DIAMETER / 2) +
                      m_centerCache}, //
-          cmp::Text{.text = inputNames[-node - 1],
+          cmp::Text{.text = inputInfos[-node - 1].m_title,
                     .scale = 6.f,
                     .align = pain::TextAlign::Right,
                     .font = *m_font} //
@@ -376,14 +378,54 @@ void GraphRender::generateGraph(pain::Scene &scene,
   m_minWeight = minWeight;
 }
 
+static void
+debugPrintNodeValues(const std::unordered_map<int, NodeInput> &weights,
+                     const std::vector<InputInfo> &inputInfo)
+{
+  std::vector<int> nodeIds;
+  nodeIds.reserve(weights.size());
+  for (const auto [node, _] : weights)
+    nodeIds.push_back(node);
+  std::sort(nodeIds.begin(), nodeIds.end());
+
+  for (int node : nodeIds) {
+    std::string name;
+    if (node < 0 && -node - 1 < static_cast<int>(inputInfo.size()))
+      name = inputInfo[-node - 1].m_title;
+    else if (node < 0)
+      name = "output";
+    else
+      name = "hidden";
+    PLOG_I("node {} [{}] = {}", node, name, weights.at(node).outputValue);
+  }
+}
+
 void GraphRender::updateWeights(
-    const std::unordered_map<int, NodeInput> &weights)
+    const std::unordered_map<int, NodeInput> &weights,
+    std::vector<InputInfo> &inputInfo)
 {
   for (const auto [node, entity] : m_mapNodeEntity) {
     pain::Color &color = getComponent<cmp::ColorIdx>(entity).color;
     double weight = weights.at(node).outputValue;
+
+    // updates the max and min weights to avoid
+    double minWeight, maxWeight;
+    bool isInput = node < 0 && -node - 1 < static_cast<int>(inputInfo.size());
+    if (isInput) {
+      InputInfo &info = inputInfo[-node - 1];
+      info.minWeight = std::min(info.minWeight, static_cast<float>(weight));
+      info.maxWeight = std::max(info.maxWeight, static_cast<float>(weight));
+      minWeight = info.minWeight;
+      maxWeight = info.maxWeight;
+    } else {
+      m_minWeight = std::min(m_minWeight, weight);
+      m_maxWeight = std::max(m_maxWeight, weight);
+      minWeight = m_minWeight;
+      maxWeight = m_maxWeight;
+    }
+
     double t = std::clamp(
-        (weight - m_minWeight) / std::abs(m_maxWeight - m_minWeight), 0.0, 1.0);
+        (weight - minWeight) / std::abs(maxWeight - minWeight), 0.0, 1.0);
     int index = static_cast<int>(t * (m_palette.size() - 1));
     color = m_palette[index];
     color.value =

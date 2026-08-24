@@ -42,6 +42,7 @@ void PlayerController::onCreate()
   psc.lifeTime = pain::DeltaTime::oneMilliSecond() * 700;
   psc.randSizeFactor = 1.F;
   psc.sizeChangeSpeed = 0.15F;
+  m_closestObsIndexes = {0, 0};
 
   painless::customPanel::registerPanel("Controller", 1.F,
                                        painless::InterfaceMenu::SIDEBAR);
@@ -236,42 +237,19 @@ bool PlayerController::checkIntersection(const ObstaclesController &obstacle)
   return true;
 }
 
-int PlayerController::getClosestObstacle()
+ObstaclesIds PlayerController::getClosestObstacles()
 {
-  const float &currentX =
-      m_obstacles[m_closestObsIndex]->getComponent<cmp::Pos2d>().m_position.x;
-  if (currentX != 2.f)
-    return m_closestObsIndex;
   float closestX = 999999.f;
-  int closestIndex = m_closestObsIndex;
-  for (int i = 0; i < static_cast<int>(m_obstacles.size()); i++) {
-    const float &x = m_obstacles[i]->getComponent<cmp::Pos2d>().m_position.x;
-    if (x < closestX) {
-      closestIndex = i;
-      closestX = x;
-    }
-  }
-  return closestIndex;
-}
-
-std::array<int, 2> PlayerController::getClosestObstacles()
-{
-  float closest1 = 999999.f;
-  float closest2 = 999999.f;
-  int idx1 = -1;
-  int idx2 = -1;
+  int idxUp = -1;
+  int idxDown = -1;
 
   for (int i = 0; i < static_cast<int>(m_obstacles.size()); i++) {
     const float x = m_obstacles[i]->getComponent<cmp::Pos2d>().m_position.x;
-    if (x < closest1) {
-      closest2 = closest1;
-      idx2 = idx1;
-      closest1 = x;
-      idx1 = i;
-    } else if (x < closest2) {
-      closest2 = x;
-      idx2 = i;
+    const bool isUp = m_obstacles[i]->isUpsideDown();
+    if (x <= closestX) {
+      closestX = x;
+      isUp ? idxUp = i : idxDown = i;
     }
   }
-  return {idx1, idx2};
+  return {idxUp, idxDown};
 }

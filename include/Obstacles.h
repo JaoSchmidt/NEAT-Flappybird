@@ -3,7 +3,8 @@
 
 #include "Core.h"
 
-class ObstaclesController : public pain::WorldObject {
+class ObstaclesController : public pain::WorldObject
+{
 public:
   using pain::WorldObject::WorldObject;
   reg::Entity static create(pain::Scene &scene, pain::Material &m);
@@ -18,6 +19,7 @@ public:
   ObstaclesController &operator=(const ObstaclesController &) = delete;
   ObstaclesController(ObstaclesController &&) = default;
   ObstaclesController &operator=(ObstaclesController &&) = default;
+  bool isUpsideDown() const { return m_isUpsideDown; }
 
 private:
   bool m_isAlive = true;

@@ -1,13 +1,18 @@
 #pragma once
 
+#include <array>
 #include <pain.h>
 #include <painless.h>
-#include <array>
 #define DEFAULTXPOS -0.8f
 
 struct ObstaclesController;
 
 reg::Entity createPlayer(pain::Scene &scene, pain::Material &m);
+
+struct ObstaclesIds {
+  int up = -1;
+  int down = -1;
+};
 
 struct PlayerController : public pain::WorldObject {
 public:
@@ -15,14 +20,12 @@ public:
 
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTimeSec);
-  void onRender(pain::RenderContext &renderer, 
-                pain::DeltaTime currentTime);
+  void onRender(pain::RenderContext &renderer, pain::DeltaTime currentTime);
 
   void resetPosition();
 
-  bool checkIntersection(const ObstaclesController& obstacle);
-  int getClosestObstacle();
-  std::array<int, 2> getClosestObstacles();
+  bool checkIntersection(const ObstaclesController &obstacle);
+  ObstaclesIds getClosestObstacles();
 
   // HACK: This exists because I can figure out how push events w/SDL_PushEvent
   bool m_automaticJump = false;
@@ -32,8 +35,8 @@ public:
   static constexpr float MAX_HEIGHT = 1.f;
   static constexpr float MIN_HEIGHT = -1.f;
 
-  std::vector<ObstaclesController*> m_obstacles = {};
-  int m_closestObsIndex = 0;
+  std::vector<ObstaclesController *> m_obstacles = {};
+  ObstaclesIds m_closestObsIndexes = {0, 0};
 
 private:
   // physics
@@ -52,6 +55,6 @@ private:
   float m_emissionInterval = 0.02f;
 
   template <std::size_t T>
-  glm::vec2 projection(const std::array<glm::vec2, T>& shape,
-                       const glm::vec2& axis);
+  glm::vec2 projection(const std::array<glm::vec2, T> &shape,
+                       const glm::vec2 &axis);
 };

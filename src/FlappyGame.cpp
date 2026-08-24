@@ -64,7 +64,8 @@ FlappyGame::FlappyGame(reg::Entity entity, pain::Scene &scene,
                        std::vector<ObstaclesController *> obc,
                        pain::Application &a)
     : pain::WorldObject(entity, scene), m_playerController(pc),
-      m_obstaclesMaterial(om), m_app(a) {
+      m_obstaclesMaterial(om), m_app(a)
+{
   m_playerController->m_obstacles = std::move(obc);
 };
 
@@ -149,14 +150,25 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime)
     }
 
     auto closest = m_playerController->getClosestObstacles();
-    for (int idx : closest) {
-      if (idx >= 0 && m_playerController->checkIntersection(
-                          *m_playerController->m_obstacles[idx]))
-        afterLosing();
-    }
+    if (checkIfLost(closest.up))
+      return;
+    if (checkIfLost(closest.down))
+      return;
   }
 }
-
+bool FlappyGame::checkIfLost(int obstacleId)
+{
+  if (obstacleId >= 0) {
+    ObstaclesController &obstacle =
+        *m_playerController->m_obstacles.at(obstacleId);
+    float x = obstacle.getComponent<cmp::Pos2d>().m_position.x;
+    if (x < -0.2F && m_playerController->checkIntersection(obstacle)) {
+      afterLosing();
+      return true;
+    }
+  }
+  return false;
+}
 void FlappyGame::afterLosing()
 {
   m_loses++;
@@ -173,8 +185,6 @@ void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown)
   const float height =
       upsideDown ? sin(randomAngle) * 0.7F + 0.75F + m_obstaclesSpacing
                  : sin(randomAngle) * 0.7F - 1.25F;
-  m_playerController->m_obstacles.at(index)->revive(m_defaultObstacleSpeed, height, upsideDown,
-                                &m_points);
+  m_playerController->m_obstacles.at(index)->revive(
+      m_defaultObstacleSpeed, height, upsideDown, &m_points);
 }
-
-

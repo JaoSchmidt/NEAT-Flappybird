@@ -1,4 +1,11 @@
+#pragma once
 #include "NEAT/NN.h"
+
+struct InputInfo {
+  std::string m_title;
+  float maxWeight = 1.f;
+  float minWeight = -1.f;
+};
 
 class GraphRender : public pain::WorldObject
 {
@@ -25,10 +32,11 @@ public:
    */
   void generateGraph(pain::Scene &scene,
                      const std::vector<ConnectionGene> &links,
-                     const std::vector<std::string> &inputNames,
+                     const std::vector<InputInfo> &inputInfos,
                      pain::Application &app);
 
-  void updateWeights(const std::unordered_map<int, NodeInput> &weights);
+  void updateWeights(const std::unordered_map<int, NodeInput> &weights,
+                     std::vector<InputInfo> &inputInfo);
 
 private:
   std::map<int, reg::Entity> m_mapNodeEntity;

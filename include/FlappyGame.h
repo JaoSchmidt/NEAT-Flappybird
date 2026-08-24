@@ -5,19 +5,20 @@
 #include "Obstacles.h"
 #include "Player.h"
 
-class FlappyGame : public pain::WorldObject {
- public:
-  reg::Entity static create(pain::Scene& scene, pain::Application& app);
+class FlappyGame : public pain::WorldObject
+{
+public:
+  reg::Entity static create(pain::Scene &scene, pain::Application &app);
 
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTime);
-  void onRender(pain::RenderContext& renderer, pain::DeltaTime currentTime);
+  void onRender(pain::RenderContext &renderer, pain::DeltaTime currentTime);
 
-  FlappyGame(reg::Entity entity, pain::Scene& scene, PlayerController* pc,
-             pain::Material& om, std::vector<ObstaclesController*> obc,
-             pain::Application& a);
+  FlappyGame(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
+             pain::Material &om, std::vector<ObstaclesController *> obc,
+             pain::Application &a);
 
- protected:
+protected:
   bool m_rendering = true;
   int m_panelID = -1;
   // parameters
@@ -27,8 +28,8 @@ class FlappyGame : public pain::WorldObject {
   float m_intervalTime = 0.6f;
   float m_maxInterval = 1.6f;
   float m_defaultObstacleSpeed = -0.32f;
-  float m_colorInterval = 0.2f;   // color waves
-  float m_heightInterval = 20.f;  // height waves
+  float m_colorInterval = 0.2f;  // color waves
+  float m_heightInterval = 20.f; // height waves
 
   float m_waveColor = 90.f;
   float m_waveHeight = 90.f;
@@ -39,19 +40,20 @@ class FlappyGame : public pain::WorldObject {
 
   double m_debugInterval;
 
-  PlayerController* m_playerController;
+  PlayerController *m_playerController;
 
-  pain::Material& m_obstaclesMaterial;
+  pain::Material &m_obstaclesMaterial;
 
-  pain::Application& m_app;
+  pain::Application &m_app;
 
   void changeObstaclesColors(pain::Color color);
   void reviveObstacle(int index, float random, bool upsideDown);
   void afterLosing();
+  bool checkIfLost(int obstacleId);
   void clearObstacles();
 
-  std::tuple<PlayerController*, pain::Material&,
-             std::vector<
-                 ObstaclesController*>> static createHelper(pain::Scene& scene,
-                                                            pain::Application&);
+  std::tuple<PlayerController *, pain::Material &,
+             std::vector<ObstaclesController
+                             *>> static createHelper(pain::Scene &scene,
+                                                     pain::Application &);
 };

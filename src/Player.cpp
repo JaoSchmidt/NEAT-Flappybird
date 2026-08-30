@@ -6,13 +6,27 @@
 #include <cstdlib>
 #include <unistd.h>
 
-reg::Entity createPlayer(pain::Scene &scene, pain::Material &m)
+reg::Entity createPlayer(pain::Scene &scene, pain::RenderApi &renderAPI)
 {
+  pain::Shader &defaultShader =
+      renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
 
+  pain::Texture &playerTexture =
+      pain::TextureManager::createTexture("resources/textures/Player.png");
+
+  pain::Material &playerMaterial = renderAPI.m_materialManager.createMaterial(
+      "Player Material", //
+      pain::MaterialCreationInfo{
+          .color = pain::Colors::FullWhite,
+          .params = std::monostate{},
+          .shader = defaultShader,
+          .texture = playerTexture,
+      } //
+  );
   reg::Entity entity = scene.createEntity("Player");
   scene.createComponents(entity, cmp::Pos2d{glm::vec2(DEFAULTXPOS, 0.0F)},
                          cmp::Mov2d{glm::vec2(0.F, 0.0F), 1.0F}, //
-                         cmp::Material::create(m),               //
+                         cmp::Material::create(playerMaterial),  //
                          cmp::Script{},                          //
                          cmp::ParticleSpray::create({
                              .interval = pain::DeltaTime::oneSecond() / 8,
@@ -28,9 +42,7 @@ reg::Entity createPlayer(pain::Scene &scene, pain::Material &m)
 };
 
 PlayerController::PlayerController(reg::Entity entity, pain::Scene &scene)
-    : pain::WorldObject(entity, scene)
-{
-}
+    : pain::WorldObject(entity, scene) {};
 
 void PlayerController::onCreate()
 {
@@ -42,7 +54,8 @@ void PlayerController::onCreate()
   psc.lifeTime = pain::DeltaTime::oneMilliSecond() * 700;
   psc.randSizeFactor = 1.F;
   psc.sizeChangeSpeed = 0.15F;
-  m_closestObsIndexes = {0, 0};
+  psc.velocity = 10.f;
+  psc.rotationSpeed = 10.f;
 
   painless::customPanel::registerPanel("Controller", 1.F,
                                        painless::InterfaceMenu::SIDEBAR);
@@ -157,6 +170,21 @@ void PlayerController::resetPosition()
   rc.m_rotationRadians = 315.F;
 }
 
+void PlayerController::onDestroy()
+{
+  cmp::Pos2d &tc = getComponent<cmp::Pos2d>();
+  cmp::Mov2d &mc = getComponent<cmp::Mov2d>();
+  cmp::Rot &rc = getComponent<cmp::Rot>();
+
+  mc.m_rotationSpeed = 0.0F;
+  m_pseudoVelocityX = 0.F;
+  tc.m_position = {-5.f, -5.F};
+  mc.m_velocity = {0.F, 0.F};
+  mc.m_rotationSpeed = 0;
+  rc.m_rotation = {0.F, 0.F, 0.F};
+  rc.m_rotationRadians = 0.F;
+}
+
 // void PlayerController::onDestroy() { delete m_pIG; }
 
 template <std::size_t T>
@@ -237,19 +265,14 @@ bool PlayerController::checkIntersection(const ObstaclesController &obstacle)
   return true;
 }
 
-ObstaclesIds PlayerController::getClosestObstacles()
+std::vector<ObstaclesController *> &PlayerController::getVisibleObstacles()
 {
-  float closestX = 999999.f;
-  int idxUp = -1;
-  int idxDown = -1;
-
+  m_visibleObstacles.clear();
   for (int i = 0; i < static_cast<int>(m_obstacles.size()); i++) {
     const float x = m_obstacles[i]->getComponent<cmp::Pos2d>().m_position.x;
-    const bool isUp = m_obstacles[i]->isUpsideDown();
-    if (x <= closestX) {
-      closestX = x;
-      isUp ? idxUp = i : idxDown = i;
+    if (x >= -1.f && x <= 0.f) {
+      m_visibleObstacles.push_back(m_obstacles[i]);
     }
   }
-  return {idxUp, idxDown};
+  return m_visibleObstacles;
 }

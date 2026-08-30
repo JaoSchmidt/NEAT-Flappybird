@@ -56,7 +56,7 @@ pain::Application *pain::createApplication()
   // (Optional) Define a small native script for the world scene
   // that will be executed on as root script. Must have added
   // System::NativeScript
-  Population::create( //
+  FlappyGame::create( //
       scene,          //
       *app);
 

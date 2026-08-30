@@ -52,7 +52,7 @@ float roundedBoxSDF(vec2 pos, vec2 b, float r)
 void main()
 {
     // WARN: this needs to be equal to the rectangle size at all times, otherwise hole lines will have deformed thickness
-    vec2 objectSize = vec2(6, 6); //
+    vec2 objectSize = vec2(10, 10); //
 
     vec2 p = (v_TexCoord - 0.5) * objectSize;
     

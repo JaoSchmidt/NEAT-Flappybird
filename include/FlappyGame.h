@@ -19,7 +19,6 @@ public:
              pain::Application &a);
 
 protected:
-  bool m_rendering = true;
   int m_panelID = -1;
   // parameters
   constexpr static int s_numberOfObstacles = 20;
@@ -34,8 +33,9 @@ protected:
   float m_waveColor = 90.f;
   float m_waveHeight = 90.f;
   bool m_isRunning = true;
-  int m_index = 0;
-  int m_points = 0;
+  bool m_rendering = true;
+  int m_recentObstacleIndex = 0;
+  int m_gameScore = 0;
   int m_loses = 0;
 
   double m_debugInterval;
@@ -49,11 +49,12 @@ protected:
   void changeObstaclesColors(pain::Color color);
   void reviveObstacle(int index, float random, bool upsideDown);
   void afterLosing();
-  bool checkIfLost(int obstacleId);
+  bool checkIfLost(ObstaclesController *obstacle);
   void clearObstacles();
 
-  std::tuple<PlayerController *, pain::Material &,
+  std::tuple<std::vector<PlayerController *>, pain::Material &,
              std::vector<ObstaclesController
                              *>> static createHelper(pain::Scene &scene,
-                                                     pain::Application &);
+                                                     pain::Application &,
+                                                     int numPlayers = 1);
 };

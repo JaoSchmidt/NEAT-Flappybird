@@ -1,18 +1,12 @@
 #pragma once
 
-#include <array>
 #include <pain.h>
 #include <painless.h>
 #define DEFAULTXPOS -0.8f
 
 struct ObstaclesController;
 
-reg::Entity createPlayer(pain::Scene &scene, pain::Material &m);
-
-struct ObstaclesIds {
-  int up = -1;
-  int down = -1;
-};
+reg::Entity createPlayer(pain::Scene &scene, pain::RenderApi &renderAPI);
 
 struct PlayerController : public pain::WorldObject {
 public:
@@ -21,13 +15,15 @@ public:
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTimeSec);
   void onRender(pain::RenderContext &renderer, pain::DeltaTime currentTime);
+  void onDestroy();
 
   void resetPosition();
 
   bool checkIntersection(const ObstaclesController &obstacle);
-  ObstaclesIds getClosestObstacles();
+  std::vector<ObstaclesController *> &getVisibleObstacles();
 
-  // HACK: This exists because I can figure out how push events w/SDL_PushEvent
+  // HACK: This exists because I can't figure out how push events
+  // w/SDL_PushEvent
   bool m_automaticJump = false;
 
   std::string name = "undefined";
@@ -36,7 +32,7 @@ public:
   static constexpr float MIN_HEIGHT = -1.f;
 
   std::vector<ObstaclesController *> m_obstacles = {};
-  ObstaclesIds m_closestObsIndexes = {0, 0};
+  std::vector<ObstaclesController *> m_visibleObstacles;
 
 private:
   // physics

@@ -12,7 +12,8 @@ static constexpr std::string_view materialGameFrame = "GameFrame";
 
 reg::Entity Population::create(pain::Scene &scene, pain::Application &app)
 {
-  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app);
+  auto [pcs, obstacleMaterial, obstacles] =
+      createHelper(scene, app, s_numberOfPlayers);
 
   reg::Entity game = scene.createEntity("PopulationGame");
   scene.createComponents(game, cmp::Script{});
@@ -26,18 +27,26 @@ reg::Entity Population::create(pain::Scene &scene, pain::Application &app)
       GraphRender::create(scene, app.getRenderApi(), camEntity);
   // MousePointer::create(scene, app.getRenderApi(), graphRender);
   // reg::Entity graphRender = reg::Entity{-1};
-  pain::Scene::emplaceScript<Population>(scene.getEntity(), scene, pc,
-                                         obstacleMaterial, std::move(obstacles),
-                                         app, graphRender);
+  pain::Scene::emplaceScript<Population>(
+      scene.getEntity(), scene, std::move(pcs), obstacleMaterial,
+      std::move(obstacles), app, graphRender, camEntity);
   return game;
 }
 
 Population::Population(reg::Entity entity, pain::Scene &scene,
-                       PlayerController *pc, pain::Material &om,
+                       std::vector<PlayerController *> pcs, pain::Material &om,
                        std::vector<ObstaclesController *> obc,
-                       pain::Application &a, reg::Entity graphRender)
-    : FlappyGame(entity, scene, pc, om, std::move(obc), a), worldScene(scene),
-      m_rng(2727797253), m_graphRender(graphRender) {};
+                       pain::Application &a, reg::Entity graphRender,
+                       reg::Entity camEntity)
+    : FlappyGame(entity, scene, pcs.at(0), om, std::move(obc), a),
+      worldScene(scene), m_rng(2727797253), m_graphRender(graphRender),
+      m_camEntity(camEntity)
+{
+  m_playerControllers = std::move(pcs);
+  // every player flies against the same set of obstacles
+  for (size_t i = 1; i < m_playerControllers.size(); i++)
+    m_playerControllers[i]->m_obstacles = m_playerControllers[0]->m_obstacles;
+}
 
 void Population::onCreate()
 {
@@ -54,10 +63,9 @@ void Population::onCreate()
     if (ImGui::Button("Toogle NEAT")) {
       m_toggleNEAT = !m_toggleNEAT;
     }
-    ImGui::Text("is NEAT running? %s", m_rendering ? "ON" : "OFF");
   });
 
-  m_points = 0;
+  m_gameScore = 0;
 
   m_config.m_generation = 0;
   m_config.m_populationSize = 150; // Set the population size
@@ -100,11 +108,20 @@ void Population::onCreate()
                      inputInfos(), m_app);
 
   // PLAYER INPUT ================================================== //
-  cmp::Pos2d &ptc = m_playerController->getComponent<cmp::Pos2d>();
-  cmp::Mov2d &pmc = m_playerController->getComponent<cmp::Mov2d>();
+  const int numPlayers = static_cast<int>(m_playerControllers.size());
+  m_playerY.resize(numPlayers);
+  m_playerVy.resize(numPlayers);
+  m_playerAlive.assign(numPlayers, true);
+  m_waveBase = 0;
+  m_deadThisWave = 0;
+  for (int p = 0; p < numPlayers; p++) {
+    PlayerController *pc = m_playerControllers[p];
+    cmp::Pos2d &ptc = pc->getComponent<cmp::Pos2d>();
+    cmp::Mov2d &pmc = pc->getComponent<cmp::Mov2d>();
 
-  m_playerY = &ptc.m_position.y;
-  m_playerVy = &pmc.m_velocity.y;
+    m_playerY[p] = &ptc.m_position.y;
+    m_playerVy[p] = &pmc.m_velocity.y;
+  }
 
   // PLAYER BOX ================================================== //
   pain::Shader &gameShader =
@@ -116,7 +133,7 @@ void Population::onCreate()
       getScene().createEntity("PopulationBox"), cmp::Pos2d::create({{0, 0}}),
       cmp::Sprite{
           .layer = pain::RenderLayer::C,
-          .m_shape = pain::RectShape{.size = {6.f, 6.f}} //
+          .m_shape = pain::RectShape{.size = {10.f, 10.f}} //
       },
       cmp::Material::create(
           mm, "PopulationBox",
@@ -131,66 +148,185 @@ void Population::onCreate()
 
 void Population::onUpdate(pain::DeltaTime deltaTime)
 {
+  const float deltaTimeSec = deltaTime.getSecondsf();
   // spawn obstacles
-  m_obstaclesInterval -= m_intervalTime * deltaTime.getSeconds();
+  m_obstaclesInterval -= m_intervalTime * deltaTimeSec;
   if (m_obstaclesInterval <= 0) {
     m_obstaclesInterval = m_maxInterval;
     const float randAngle =
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * M_PI * 2;
 
-    reviveObstacle(m_index, randAngle, true);
-    m_index = (m_index + 1) % s_numberOfObstacles;
-    reviveObstacle(m_index, randAngle, false);
-    m_index = (m_index + 1) % s_numberOfObstacles;
-  }
-  // check if m_points changed
-  if (m_points > m_pointsChecker) {
-    m_pointsChecker = m_points;
-    m_playerController->m_closestObsIndexes =
-        m_playerController->getClosestObstacles();
+    reviveObstacle(m_recentObstacleIndex, randAngle, true);
+    m_recentObstacleIndex = (m_recentObstacleIndex + 1) % s_numberOfObstacles;
+    reviveObstacle(m_recentObstacleIndex, randAngle, false);
+    m_recentObstacleIndex = (m_recentObstacleIndex + 1) % s_numberOfObstacles;
   }
 
-  // check collision and losing state using only the two closest obstacles
-  ObstaclesIds closest = m_playerController->getClosestObstacles();
-  if (checkIfLost(closest.up))
+  if (m_gameScore > 300 && !m_soloMode) {
+    enterSoloMode();
     return;
-  if (checkIfLost(closest.down))
-    return;
-  if (m_points > 300) {
-    m_app.setTimeMultiplier(1.);
-    m_app.setRendereing(true);
   }
 
-  m_playerController->m_closestObsIndexes =
-      m_playerController->getClosestObstacles();
-  const glm::vec2 obsPos =
-      m_playerController
-          ->m_obstacles[m_playerController->m_closestObsIndexes.down]
-          ->getComponent<cmp::Pos2d>()
-          .m_position;
+  GraphRender *gr = nullptr;
+  if (!m_app.isSimulation())
+    gr = &worldScene.getNativeScript<GraphRender>(m_graphRender);
 
-  // INPUT VARIABLES, including player and obstacles
-  if (m_app.isSimulation()) {
-    m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
-        {TP_VEC2(obsPos), *m_playerY, *m_playerVy});
-  } else {
-    GraphRender &gr = worldScene.getNativeScript<GraphRender>(m_graphRender);
-    m_playerController->m_automaticJump = m_individuals[m_currentIndIndex].fit(
-        {TP_VEC2(obsPos), *m_playerY, *m_playerVy}, gr);
+  // wave mode: all alive players fly
+  for (int playerIdx = 0;
+       playerIdx < static_cast<int>(m_playerControllers.size()); playerIdx++) {
+    PlayerController *pc = m_playerControllers[playerIdx];
+    if (!m_playerAlive[playerIdx])
+      continue;
+
+    std::vector<ObstaclesController *> &visible = pc->getVisibleObstacles();
+
+    bool died = false;
+    for (ObstaclesController *obs : visible) {
+      if (checkPlayerDeath(playerIdx, obs)) {
+        died = true;
+        break;
+      }
+    }
+    if (died)
+      continue;
+
+    ObstaclesController *closestDown = nullptr;
+    float closestX = 1.f;
+    for (ObstaclesController *obs : visible) {
+      if (!obs->isUpsideDown())
+        continue;
+      float x = obs->getComponent<cmp::Pos2d>().m_position.x;
+      if (x < closestX) {
+        closestX = x;
+        closestDown = obs;
+      }
+    }
+    if (!closestDown)
+      continue;
+
+    const glm::vec2 obsPos =
+        closestDown->getComponent<cmp::Pos2d>().m_position;
+
+    Individual &individual = m_individuals[m_waveBase + playerIdx];
+    if (gr && m_bestIndividualInsideWaveIndex == playerIdx)
+      // gt.updateWeights is called
+      pc->m_automaticJump = individual.fit(
+          {TP_VEC2(obsPos), *m_playerY[playerIdx], *m_playerVy[playerIdx]},
+          *gr);
+    else
+      pc->m_automaticJump = individual.fit(
+          {TP_VEC2(obsPos), *m_playerY[playerIdx], *m_playerVy[playerIdx]});
   }
 }
 
-void Population::afterLosing()
+bool Population::checkPlayerDeath(int playerIdx, ObstaclesController *obstacle)
 {
-  // update fitness
-  m_individuals[m_currentIndIndex].m_fitness = m_points;
-  if (m_toggleNEAT) {
-    if (m_currentIndIndex == m_config.m_populationSize - 1)
-      updateGeneration();
-    m_currentIndIndex = (m_currentIndIndex + 1) % m_config.m_populationSize;
+  if (!obstacle)
+    return false;
+  PlayerController *pc = m_playerControllers[playerIdx];
+  float x = obstacle->getComponent<cmp::Pos2d>().m_position.x;
+  if (x < -0.2F && pc->checkIntersection(*obstacle)) {
+    afterLosing(playerIdx);
+    return true;
   }
+  return false;
+}
+
+void Population::afterLosing(int playerIdx)
+{
+  m_individuals[m_waveBase + playerIdx].m_fitness = m_gameScore;
   m_loses++;
-  FlappyGame::afterLosing();
+
+  PlayerController *pc = m_playerControllers[playerIdx];
+  pc->onDestroy();
+
+  if (m_soloMode) {
+    // clear obstacles and reset for a fresh solo attempt
+    for (int i = 0; i < s_numberOfObstacles; i++)
+      m_playerControllers[0]->m_obstacles[i]->revive(0, 0, false, &m_gameScore);
+    m_gameScore = 0;
+    m_recentObstacleIndex = 0;
+    m_playerAlive[playerIdx] = true;
+    return;
+  }
+
+  // wave mode: deactivate player and advance when the whole wave is dead
+  m_playerAlive[playerIdx] = false;
+  m_deadThisWave++;
+  const int playersInWave =
+      std::min(static_cast<int>(m_playerControllers.size()),
+               m_config.m_populationSize - m_waveBase);
+  if (m_deadThisWave >= playersInWave)
+    nextWave();
+}
+
+void Population::nextWave()
+{
+  // clear all obstacles so leftover ghosts don't kill the next wave
+  for (int i = 0; i < s_numberOfObstacles; i++)
+    m_playerControllers[0]->m_obstacles[i]->revive(0, 0, false, &m_gameScore);
+  m_gameScore = 0;
+  m_recentObstacleIndex = 0;
+
+  m_deadThisWave = 0;
+  m_waveBase += static_cast<int>(m_playerControllers.size());
+  if (m_waveBase >= m_config.m_populationSize) {
+    // every individual was evaluated, evolve the population
+    if (m_toggleNEAT)
+      updateGeneration();
+    m_waveBase = 0;
+  }
+
+  m_bestIndividualInsideWaveIndex = 0;
+  Individual &bestIndividualInsideWave = m_individuals[m_waveBase];
+  const int numPlayers = static_cast<int>(m_playerControllers.size());
+  for (int p = 0; p < numPlayers; p++) {
+    const bool active = (m_waveBase + p) < m_config.m_populationSize;
+    m_playerAlive[p] = active;
+    PlayerController *pc = m_playerControllers[p];
+    pc->resetPosition();
+    Individual &individual = m_individuals[m_waveBase + p];
+
+    if (bestIndividualInsideWave.m_fitness < individual.m_fitness) {
+      m_bestIndividualInsideWaveIndex = p;
+    }
+  }
+}
+
+void Population::enterSoloMode()
+{
+  const int numPlayers = static_cast<int>(m_playerControllers.size());
+
+  // find the alive player to identify the champion individual
+  int aliveSlot = 0;
+  for (int p = 0; p < numPlayers; p++) {
+    if (m_playerAlive[p]) {
+      aliveSlot = p;
+      break;
+    }
+  }
+  m_soloIdx = m_waveBase + aliveSlot;
+  m_soloMode = true;
+
+  // clear obstacles and reset the score
+  for (int i = 0; i < s_numberOfObstacles; i++)
+    m_playerControllers[0]->m_obstacles[i]->revive(0, 0, false, &m_gameScore);
+  m_gameScore = 0;
+  m_recentObstacleIndex = 0;
+
+  // downsize to a single solo player
+  m_playerControllers.resize(1);
+  m_playerY.resize(1);
+  m_playerVy.resize(1);
+  m_playerAlive.assign(1, true);
+
+  // reset the solo player
+  m_playerControllers[0]->resetPosition();
+
+  // stop the NEAT run, restore normal rendering
+  m_toggleNEAT = false;
+  m_app.setTimeMultiplier(1.0);
+  m_app.setRendereing(true);
 }
 
 // ================================================================== //

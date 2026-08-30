@@ -2,39 +2,28 @@
 #include "Assets/ManagerTexture.h"
 #include <cstdlib>
 
-std::tuple<PlayerController *, pain::Material &,
+std::tuple<std::vector<PlayerController *>, pain::Material &,
            std::vector<ObstaclesController *>>
-FlappyGame::createHelper(pain::Scene &scene, pain::Application &app)
+FlappyGame::createHelper(pain::Scene &scene, pain::Application &app,
+                         int numPlayers)
 {
   pain::RenderApi &renderAPI = app.getRenderApi();
   pain::Shader &obstacleShader = renderAPI.m_shaderManager.getDefaultShader(
       pain::DefaultShader::SimpleTriangles);
-  pain::Shader &defaultShader =
-      renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
-
-  pain::Texture &playerTexture =
-      pain::TextureManager::createTexture("resources/textures/Player.png");
-
-  pain::Material &playerMaterial = renderAPI.m_materialManager.createMaterial(
-      "Player Material", //
-      pain::MaterialCreationInfo{
-          .color = pain::Colors::SkyBlue,
-          .params = std::monostate{},
-          .shader = defaultShader,
-          .texture = playerTexture,
-      } //
-  );
-
   pain::Material &obstacleMaterial = renderAPI.m_materialManager.createMaterial(
       "Obstacle Material", //
       pain::MaterialCreationInfo{
-          .color = pain::Colors::SkyBlue,
+          .color = pain::Colors::FullWhite,
           .params = std::monostate{},
           .shader = obstacleShader,
       } //
   );
-  reg::Entity player = createPlayer(scene, playerMaterial);
-  PlayerController *pc = &scene.getNativeScript<PlayerController>(player);
+  std::vector<PlayerController *> players;
+  players.reserve(numPlayers);
+  for (int i = 0; i < numPlayers; i++) {
+    reg::Entity player = createPlayer(scene, renderAPI);
+    players.push_back(&scene.getNativeScript<PlayerController>(player));
+  }
 
   std::vector<ObstaclesController *> obstacles;
   obstacles.reserve(s_numberOfObstacles);
@@ -43,7 +32,7 @@ FlappyGame::createHelper(pain::Scene &scene, pain::Application &app)
     ObstaclesController &oc = scene.getNativeScript<ObstaclesController>(e);
     obstacles.emplace_back(&oc);
   };
-  return {pc, obstacleMaterial, std::move(obstacles)};
+  return {std::move(players), obstacleMaterial, std::move(obstacles)};
 }
 
 reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app)
@@ -53,8 +42,8 @@ reg::Entity FlappyGame::create(pain::Scene &scene, pain::Application &app)
 
   pain::Dummy2dCamera::createStaticCamera(scene, w, h, 1.f);
 
-  auto [pc, obstacleMaterial, obstacles] = createHelper(scene, app);
-  pain::Scene::emplaceScript<FlappyGame>(scene.getEntity(), scene, pc,
+  auto [pcs, obstacleMaterial, obstacles] = createHelper(scene, app);
+  pain::Scene::emplaceScript<FlappyGame>(scene.getEntity(), scene, pcs[0],
                                          obstacleMaterial, std::move(obstacles),
                                          app);
   return scene.getEntity();
@@ -95,8 +84,8 @@ void FlappyGame::onCreate()
         ImGui::SeparatorText("Info");
         ImGui::Text("Obstacle Spawn counter:% .2F seconds",
                     m_obstaclesInterval);
-        ImGui::Text(" Last Obstacle index : %.2d ", m_index);
-        ImGui::Text(" Points : %.4d ", m_points);
+        ImGui::Text(" Last Obstacle index : %.2d ", m_recentObstacleIndex);
+        ImGui::Text(" Score : %.4d ", m_gameScore);
         ImGui::Text(" Loses : %.4d ", m_loses);
 
         double time = m_app.getTimeMultiplier();
@@ -143,26 +132,24 @@ void FlappyGame::onUpdate(pain::DeltaTime deltaTime)
       const float randAngle =
           static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * M_PI * 2;
 
-      m_index = (m_index + 1) % s_numberOfObstacles;
-      reviveObstacle(m_index, randAngle, true);
-      m_index = (m_index + 1) % s_numberOfObstacles;
-      reviveObstacle(m_index, randAngle, false);
+      m_recentObstacleIndex = (m_recentObstacleIndex + 1) % s_numberOfObstacles;
+      reviveObstacle(m_recentObstacleIndex, randAngle, true);
+      m_recentObstacleIndex = (m_recentObstacleIndex + 1) % s_numberOfObstacles;
+      reviveObstacle(m_recentObstacleIndex, randAngle, false);
     }
 
-    auto closest = m_playerController->getClosestObstacles();
-    if (checkIfLost(closest.up))
-      return;
-    if (checkIfLost(closest.down))
-      return;
+    auto &visible = m_playerController->getVisibleObstacles();
+    for (ObstaclesController *obs : visible) {
+      if (checkIfLost(obs))
+        return;
+    }
   }
 }
-bool FlappyGame::checkIfLost(int obstacleId)
+bool FlappyGame::checkIfLost(ObstaclesController *obstacle)
 {
-  if (obstacleId >= 0) {
-    ObstaclesController &obstacle =
-        *m_playerController->m_obstacles.at(obstacleId);
-    float x = obstacle.getComponent<cmp::Pos2d>().m_position.x;
-    if (x < -0.2F && m_playerController->checkIntersection(obstacle)) {
+  if (obstacle) {
+    float x = obstacle->getComponent<cmp::Pos2d>().m_position.x;
+    if (x < -0.2F && m_playerController->checkIntersection(*obstacle)) {
       afterLosing();
       return true;
     }
@@ -172,12 +159,12 @@ bool FlappyGame::checkIfLost(int obstacleId)
 void FlappyGame::afterLosing()
 {
   m_loses++;
-  m_points = 0;
+  m_gameScore = 0;
   // reset Player position
   m_playerController->resetPosition();
   // clear obstacles
   for (char i = 0; i < s_numberOfObstacles; i++)
-    m_playerController->m_obstacles[i]->revive(0, 0, false, &m_points);
+    m_playerController->m_obstacles[i]->revive(0, 0, false, &m_gameScore);
 }
 
 void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown)
@@ -186,5 +173,5 @@ void FlappyGame::reviveObstacle(int index, float randomAngle, bool upsideDown)
       upsideDown ? sin(randomAngle) * 0.7F + 0.75F + m_obstaclesSpacing
                  : sin(randomAngle) * 0.7F - 1.25F;
   m_playerController->m_obstacles.at(index)->revive(
-      m_defaultObstacleSpeed, height, upsideDown, &m_points);
+      m_defaultObstacleSpeed, height, upsideDown, &m_gameScore);
 }

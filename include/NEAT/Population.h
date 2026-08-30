@@ -18,9 +18,10 @@ public:
   void onCreate();
   void onUpdate(pain::DeltaTime deltaTime);
 
-  Population(reg::Entity entity, pain::Scene &scene, PlayerController *pc,
-             pain::Material &om, std::vector<ObstaclesController *> obc,
-             pain::Application &a, reg::Entity graphRender);
+  Population(reg::Entity entity, pain::Scene &scene,
+             std::vector<PlayerController *> pcs, pain::Material &om,
+             std::vector<ObstaclesController *> obc, pain::Application &a,
+             reg::Entity graphRender, reg::Entity camEntity);
 
   NONCOPYABLE(Population)
   NONMOVABLE(Population)
@@ -29,11 +30,10 @@ public:
   static std::vector<InputInfo> &inputInfos();
 
 protected:
-
   pain::Scene &worldScene; // To mess with time multipliers
   // forced delta time equal 1/60
   static constexpr double m_deltaTime = static_cast<double>(1) / 60;
-  bool m_rendering = true;
+  static constexpr int s_numberOfPlayers = 1;
   bool m_toggleNEAT = true;
 
   NeatConfig m_config = {};
@@ -51,16 +51,30 @@ protected:
                                               int tournamentSize) const;
   void offspringAndMutate(std::vector<Individual> selection);
 
+  // players running in parallel, one individual assigned to each
+  std::vector<PlayerController *> m_playerControllers;
   // inputs from player
-  float *m_playerY = nullptr;
-  float *m_playerVy = nullptr;
+  std::vector<float *> m_playerY;
+  std::vector<float *> m_playerVy;
 
-  int m_pointsChecker = 0; // detect inputs
-  int m_currentIndIndex = 0;
+  int m_waveBase = 0; // first individual index of the current wave
+  int m_deadThisWave = 0;
+  std::vector<bool> m_playerAlive;
+
+  // solo mode: champion runs alone after hitting the point threshold
+  bool m_soloMode = false;
+  int m_soloIdx = 0;      // index into m_individuals for the champion
+  int m_championSlot = 0; // player slot the champion occupies
+
+  int m_bestIndividualInsideWaveIndex = 0;
   Individual *m_bestIndividual = nullptr;
   reg::Entity m_graphRender;
+  reg::Entity m_camEntity;
 
-  void afterLosing();
+  void afterLosing(int playerIdx);
+  void nextWave();
+  void enterSoloMode();
+  bool checkPlayerDeath(int playerIdx, ObstaclesController *obstacle);
 
   reg::Entity m_frame;
 };

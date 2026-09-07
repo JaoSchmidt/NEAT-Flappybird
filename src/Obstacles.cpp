@@ -1,13 +1,15 @@
 #include "Obstacles.h"
 #include "Player.h"
 
+static constexpr float OBSTACLE_WAITING_POS = 2.5f;
+
 reg::Entity ObstaclesController::create(pain::Scene &scene, pain::Material &m)
 {
 
   reg::Entity e = scene.createEntity("Obstacle");
   scene.createComponents(
       e, //
-      cmp::Pos2d(glm::vec3(2.0F, -0.5F, 0.F)), cmp::Mov2d(),
+      cmp::Pos2d(glm::vec3(OBSTACLE_WAITING_POS, -0.5F, 0.F)), cmp::Mov2d(),
       cmp::Sprite::create({.layer = pain::RenderLayer::B,
                            .shape = pain::TriangleShape{0.8F, 2.00F}}),
       cmp::Material::create(m), //
@@ -45,6 +47,6 @@ void ObstaclesController::revive(float obstacleSpeed, float height,
   mc.m_velocity.x = obstacleSpeed;
   // WARN: This value "1.5f" to put all obstacles hidden on the right of the
   // screen might not work depending on the resolution. Consider alternatives
-  tc.m_position = glm::vec3(2.f, height, 0.f);
+  tc.m_position = glm::vec3(OBSTACLE_WAITING_POS, height, 0.f);
   m_canCountPoints = true;
 }

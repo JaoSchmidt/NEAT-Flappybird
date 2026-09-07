@@ -4,6 +4,7 @@
 
 #include "Obstacles.h"
 #include "Player.h"
+#include "TwoTileScroll.h"
 
 class FlappyGame : public pain::WorldObject
 {
@@ -26,7 +27,7 @@ protected:
   float m_obstaclesInterval = 1.6f;
   float m_intervalTime = 0.6f;
   float m_maxInterval = 1.6f;
-  float m_defaultObstacleSpeed = -0.32f;
+  float m_defaultObstacleSpeed = -0.38f;
   float m_colorInterval = 0.2f;  // color waves
   float m_heightInterval = 20.f; // height waves
 
@@ -43,6 +44,8 @@ protected:
   PlayerController *m_playerController;
 
   pain::Material &m_obstaclesMaterial;
+
+  TwoTileScroll m_background;
 
   pain::Application &m_app;
 

@@ -31,17 +31,30 @@ SOURCE_HASH=$(
     awk '{print $1}'
 )
 BUILD_STAMP="$LOCAL_DIR/.build-source-hash"
+EXCLUDES=(
+    --exclude=".git"
+    --exclude="build/"
+    --exclude=".cache"
+    --exclude="resources/"
+)
+
 
 if [[ -f "$BUILD_STAMP" ]] && [[ -d "build" ]] && [[ "$(cat "$BUILD_STAMP")" == "$SOURCE_HASH" ]]; then
     echo "No .cpp/.h changes since last build. Using rsync locally"
     rsync -av  "${LOCAL_DIR}/Pain/resources/" "${LOCAL_DIR}/resources/"
+
+    EXCLUDES=(
+    --exclude="*.xcf"
+    --exclude="*.ase"
+    )
     # Sync resources from every Example/* folder that contains a resources directory.
     for example_dir in "${LOCAL_DIR}/Example"/*/; do
         name="$(basename "${example_dir%/}")"
         if [[ -d "${example_dir}resources" ]] && [[ -d "${LOCAL_DIR}/build/Example/${name}/resources/" ]]; then
-            rsync -av "${example_dir}resources/" "${LOCAL_DIR}/resources/"
-            rsync -av --chmod=F444,D775 "${LOCAL_DIR}/Pain/resources/" "${LOCAL_DIR}/build/Example/${name}/resources/"
-            rsync -av --chmod=F444,D775 "${example_dir}resources/" "${LOCAL_DIR}/build/Example/${name}/resources/"
+            cp "${LOCAL_DIR}/resources/internalConfig.ini" "${LOCAL_DIR}/build/Example/${name}/resources/"
+            rsync -av "${EXCLUDES[@]}" "${example_dir}resources/" "${LOCAL_DIR}/resources/"
+            rsync -av "${EXCLUDES[@]}" --chmod=F444,D775 "${LOCAL_DIR}/Pain/resources/" "${LOCAL_DIR}/build/Example/${name}/resources/"
+            rsync -av "${EXCLUDES[@]}" --chmod=F444,D775 "${example_dir}resources/" "${LOCAL_DIR}/build/Example/${name}/resources/"
         fi
     done
     exit 0
@@ -66,9 +79,7 @@ REMOTE_BUILD="${REMOTE_SRC}/build"
 echo "Syncing source with rsync"
 
 sshpass -f${PASSWORD} rsync -az --delete --mkpath \
-    --exclude=".git" \
-    --exclude="build/" \
-    --exclude=".cache" \
+    "${EXCLUDES[@]}" \
     -e "ssh $SSH_OPTS" \
     "$LOCAL_DIR/" \
     "$REMOTE_USER@$SERVER:$REMOTE_SRC/"

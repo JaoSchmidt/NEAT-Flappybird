@@ -55,7 +55,8 @@ void PlayerController::onCreate()
   psc.randSizeFactor = 1.F;
   psc.sizeChangeSpeed = 0.15F;
   psc.velocity = 10.f;
-  psc.rotationSpeed = 10.f;
+  psc.rotationSpeed = 2.f;
+  psc.layer = pain::RenderLayer::A;
 
   painless::customPanel::registerPanel("Controller", 1.F,
                                        painless::InterfaceMenu::SIDEBAR);

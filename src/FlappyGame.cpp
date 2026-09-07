@@ -65,6 +65,7 @@ void FlappyGame::changeObstaclesColors(pain::Color color)
 
 void FlappyGame::onCreate()
 {
+  m_background.init(m_app.getRenderApi(), 6.f, -0.5f, 6);
 
   m_panelID = painless::customPanel::addToPanel(
       "Controller",
@@ -101,8 +102,9 @@ void FlappyGame::onCreate()
       2);
 }
 
-void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime)
+void FlappyGame::onRender(pain::RenderContext &ctx, pain::DeltaTime currentTime)
 {
+  m_background.render(ctx);
 
   m_waveColor =
       m_waveColor + fmod(m_colorInterval * currentTime.getSecondsf(), 360.F);
@@ -118,6 +120,8 @@ void FlappyGame::onRender(pain::RenderContext &_, pain::DeltaTime currentTime)
 
 void FlappyGame::onUpdate(pain::DeltaTime deltaTime)
 {
+  m_background.update(deltaTime);
+
   if (m_isRunning) {
     // Overall game
     // 1. if obstacle is outside camera, call onDestroy

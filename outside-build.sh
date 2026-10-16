@@ -35,7 +35,6 @@ EXCLUDES=(
     --exclude=".git"
     --exclude="build/"
     --exclude=".cache"
-    --exclude="resources/"
 )
 
 
@@ -114,12 +113,12 @@ docker run --rm \
     '
 EOF
 then
-    :   
+    BUILD_EXIT=0
 else
+    BUILD_EXIT=$?
     DBUS="unix:path=/run/user/$(id -u)/bus"
     DBUS_SESSION_BUS_ADDRESS=$DBUS notify-send "Build Failed" "Command failed" &
     DBUS_SESSION_BUS_ADDRESS=$DBUS paplay --volume=$VOLUME /usr/share/sounds/freedesktop/stereo/suspend-error.oga &
-    exit 1
 fi
 
 echo "Downloading artifacts..."
@@ -130,6 +129,10 @@ sshpass -f${PASSWORD} rsync -az \
     -e "ssh $SSH_OPTS" \
     "$REMOTE_USER@$SERVER:$REMOTE_BUILD/" \
     "$LOCAL_DIR/build/"
+
+if [[ $BUILD_EXIT -ne 0 ]]; then
+    exit $BUILD_EXIT
+fi
 
 echo "Build successful."
 DBUS="unix:path=/run/user/$(id -u)/bus"
